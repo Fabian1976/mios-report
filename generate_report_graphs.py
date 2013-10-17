@@ -84,7 +84,7 @@ def getHosts(hostgroupid):
 
 def getGraphs(hostid):
 	graphs = {}
-	selected = False
+	selected = 0
 	for graph in zapi.graph.get({ "output": "extend", "hostids":hostid }):
 		graphs[graph['name']] = (graph['graphid'], selected)
 	return graphs
@@ -140,7 +140,7 @@ def runmenu(menu, parent):
 
 	# Loop until return key is pressed
 	while x !=ord('\n'):
-		if pos != oldpos:
+		if pos != oldpos or x == 32:
 			oldpos = pos
 			screen.clear() #clears previous screen on key press and updates display based on pos
 			screen.border(0)
@@ -152,8 +152,10 @@ def runmenu(menu, parent):
 				textstyle = n
 				if pos==index:
 					textstyle = h
-#				screen.addstr(5+index,4, "%d - %s" % (index+1, menu['options'][index]['title']), textstyle)
-				screen.addstr(5+index,4, "%s" % menu['options'][index]['title'], textstyle)
+				if 'graphid' in menu['options'][index]:
+					screen.addstr(5+index,4, "%s, %s" % (menu['options'][index]['title'], menu['options'][index]['selected']), textstyle)
+				else:
+					screen.addstr(5+index,4, "%s" % menu['options'][index]['title'], textstyle)
 			# Now display Exit/Return at bottom of menu
 			textstyle = n
 			if pos==optioncount:
@@ -176,6 +178,13 @@ def runmenu(menu, parent):
 				pos += -1
 			else:
 				pos = optioncount
+		elif x == 32:
+			if 'graphid' in menu['options'][pos]:
+				if menu['options'][pos]['selected'] == 0:
+					menu['options'][pos]['selected'] = 1
+				else:
+					menu['options'][pos]['selected'] = 0
+			screen.refresh()
 		elif x != ord('\n'):
 			curses.flash()
 
@@ -223,7 +232,7 @@ if  __name__ == "__main__":
 	os.system('clear')
 	# get host groups
 	hostgroupid = selectHostgroup()
-	# get hosts from selected host group
+	# get the hosts and their graphs from selected host group
 	hosts = getHosts(hostgroupid)
 
 	# Menus bouwen
@@ -241,6 +250,7 @@ if  __name__ == "__main__":
 			menu_graphs['title'] = str(graph)
 			menu_graphs['type'] = 'GRAPHID'
 			menu_graphs['graphid'] = graphs[graph][0]
+			menu_graphs['selected'] = graphs[graph][1]
 			host_options.append(menu_graphs)
 		menu_hosts['options'] = host_options
 		menu_options.append(menu_hosts)
