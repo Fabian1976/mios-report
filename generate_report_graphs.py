@@ -3,6 +3,13 @@ import optparse
 import sys, os
 import traceback
 from getpass import getpass
+# Add mios-report LIB to path
+try:
+        mreport_home = os.environ['MREPORT_HOME']
+except:
+        mreport_home = "/opt/mios/mios-report"
+sys.path.append(mreport_home + '/lib')
+
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 
 import curses, os #curses is the interface for capturing key presses on the menu, os launches the files
