@@ -92,7 +92,7 @@ def getGraphs(hostid):
 def getGraph(graphid):
 	import pycurl
 	import StringIO
-	c = pycurl.Curl()
+	curl = pycurl.Curl()
 	buffer = StringIO.StringIO()
 
 	z_server = options.server
@@ -101,21 +101,23 @@ def getGraph(graphid):
 	z_url_index = z_server + 'index.php'
 	z_url_graph = z_server + 'chart2.php'
 	z_login_data = 'name=' + z_user + '&password=' + z_password + '&autologon=1&enter=Sign+in'
-	filename_cookie = 'z_tmp_cookies_' + str(graphid) + '.txt'
-	image_name = str(graphid) + '.png'
-	# login and get cookie
-	c.setopt(c.URL, z_url_index)
-	c.setopt(c.POSTFIELDS, z_login_data)
-	c.setopt(c.COOKIEJAR, filename_cookie)
-	c.setopt(c.COOKIEFILE, filename_cookie)
-	c.perform()
-	# get graph image using cookie
-	#Bij alleen het opgeven van de periode gaat de grafiek zolang terug. In dit geval dus 604800 seconden (1 week)
-	#Men kan ook een start tijd opgeven (&stime=yyyymmddhh24mmss) Dus bijvoorbeeld: &stime=201310130000&period=86400 start vanaf 13-10-2013 en duurt 1 dag
-	c.setopt(c.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=1200&height=200&period=604800')
-	c.setopt(c.WRITEFUNCTION, buffer.write)
-	c.perform()
-	f = open(image_name, 'wb')
+	# Als de filename van de cookie leeg gelaten wordt, slaat curl de cookie op in het geheugen
+	# op deze manier hoeft de cookie achteraf niet verwijderd te worden. Als het script nu stop is de cookie ook weer weg
+	z_filename_cookie = ''
+	z_image_name = str(graphid) + '.png'
+	# Inloggen en cookie ophalen
+	curl.setopt(curl.URL, z_url_index)
+	curl.setopt(curl.POSTFIELDS, z_login_data)
+	curl.setopt(curl.COOKIEJAR, z_filename_cookie)
+	curl.setopt(curl.COOKIEFILE, z_filename_cookie)
+	curl.perform()
+	# De graphs ophalen m.b.v. de cookie
+	# Bij alleen het opgeven van de periode gaat de grafiek zolang terug. In dit geval dus 604800 seconden (1 week) vanaf de huidige datum/tijdstip
+	# Men kan ook een start tijd opgeven (&stime=yyyymmddhh24mmss) Dus bijvoorbeeld: &stime=201310130000&period=86400 start vanaf 13-10-2013 en duurt 1 dag
+	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=1200&height=200&period=604800')
+	curl.setopt(curl.WRITEFUNCTION, buffer.write)
+	curl.perform()
+	f = open(z_image_name, 'wb')
 	f.write(buffer.getvalue())
 	f.close()
 	
