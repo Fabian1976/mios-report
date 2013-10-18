@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import optparse
 import sys, os
+import time
 import traceback
 from getpass import getpass
 # Add mios-report LIB to path
@@ -62,18 +63,26 @@ def selectHostgroup():
 	for hostgroup in zapi.hostgroup.get({ "output": "extend", "filter": { "internal": "0"} }):
 		teller+=1
 		hostgroups[teller] = (hostgroup['name'], hostgroup['groupid'])
-	print "Aanwezige hostgroups:"
-	for hostgroup in hostgroups:
-		print '\t%2d: %s' % (hostgroup, hostgroups[hostgroup][0])
-	try:
-		hostgroupnr = int(raw_input('Selecteer hostgroup: '))
+	hostgroupid = -1
+	while hostgroupid == -1:
+		os.system('clear')
+		print "Aanwezige hostgroups:"
+		for hostgroup in hostgroups:
+			print '\t%2d: %s' % (hostgroup, hostgroups[hostgroup][0])
 		try:
-			hostgroupid = hostgroups[hostgroupnr][1]
-		except KeyError:
-			print "Het opgegeven nummer komt niet overeen met een host group"
-			hostgroupid = "Niet gevonden"
-	except ValueError:
-		print "Geen nummer opgegeven"
+			hostgroupnr = int(raw_input('Selecteer hostgroup: '))
+			try:
+				hostgroupid = hostgroups[hostgroupnr][1]
+			except KeyError:
+				print "\nTellen is niet je sterkste punt h%s!" % chr(232)
+				hostgroupid = -1
+				print "\nDruk op een toets om het nogmaals te proberen..."
+				os.system('read -N 1 -s')
+		except ValueError:
+			print "\nEeuhm... Das geen nummer h%s!" % chr(232)
+			hostgroupid = -1
+			print "\nDruk op een toets om het nogmaals te proberen..."
+			os.system('read -N 1 -s')
 	return hostgroupid
 
 def getHosts(hostgroupid):
@@ -128,9 +137,9 @@ def runmenu(menu, parent):
 
 	# work out what text to display as the last menu option
 	if parent is None:
-		lastoption = "Exit"
+		lastoption = "Klaar met grafieken aanvinken!"
 	else:
-		lastoption = "Return to %s menu" % parent['title']
+		lastoption = "Terug naar menu %s" % parent['title']
 
 	optioncount = len(menu['options']) # how many options in this menu
 
@@ -153,7 +162,11 @@ def runmenu(menu, parent):
 				if pos==index:
 					textstyle = h
 				if 'graphid' in menu['options'][index]:
-					screen.addstr(5+index,4, "%s, %s" % (menu['options'][index]['title'], menu['options'][index]['selected']), textstyle)
+					if menu['options'][index]['selected'] == 1:
+						check = '[*]'
+					else:
+						check = '[ ]'
+					screen.addstr(5+index,4, "%-50s %s" % (menu['options'][index]['title'], check), textstyle)
 				else:
 					screen.addstr(5+index,4, "%s" % menu['options'][index]['title'], textstyle)
 			# Now display Exit/Return at bottom of menu
@@ -229,20 +242,21 @@ if  __name__ == "__main__":
 	except ZabbixAPIException, e:
 		sys.stderr.write(str(e) + '\n')
 
-	os.system('clear')
 	# get host groups
 	hostgroupid = selectHostgroup()
+	os.system('clear')
+	print "De hosts en bijbehorende grafieken van de geselecteerde host group worden opgehaald..."
 	# get the hosts and their graphs from selected host group
 	hosts = getHosts(hostgroupid)
 
 	# Menus bouwen
-	menu = {'title': 'Host list', 'type': 'MENU', 'subtitle': 'Please select a host...'}
+	menu = {'title': 'Host list', 'type': 'MENU', 'subtitle': 'Selecteer een host...'}
 	menu_options = []
 	for host in hosts:
 		menu_hosts = {}
 		menu_hosts['title'] = host
 		menu_hosts['type'] = 'MENU'
-		menu_hosts['subtitle'] = 'Select a graph...'
+		menu_hosts['subtitle'] = 'Vink de grafieken aan die in het rapport meegenomen moeten worden...'
 		graphs = hosts[host][1]
 		host_options = []
 		for graph in graphs:
@@ -257,3 +271,4 @@ if  __name__ == "__main__":
 	menu['options'] = menu_options
 
 	doMenu(menu)
+	os.system('clear')
