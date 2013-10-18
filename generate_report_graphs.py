@@ -238,7 +238,7 @@ def doMenu(menu_data):
 	processmenu(menu_data)
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
+def checkGraphs(hostgroupid, hostgroupnaam, menu_data):
 	any_graphs = 0
 	num_hosts = len(menu_data['options'])
 	print "Groep '%s':" % hostgroupnaam
@@ -260,15 +260,52 @@ def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
 		antwoord = ""
 		while antwoord not in ["ja", "Ja", "nee", "Nee"]:
 			try:
-				antwoord = str(raw_input('\nWil je deze grafieken in de database opslaan? (Ja/Nee): '))
+				antwoord = str(raw_input('\nWil je deze grafieken in de database opslaan (LET OP: de oude instellingen voor deze groep worden overschreven door deze nieuwe)? (Ja/Nee): '))
 			except KeyboardInterrupt: # Catch CTRL-C
 				pass
 		if antwoord in ["ja", "Ja"]:
 			print "OK"
+			storeGraphs(hostgroupid, hostgroupnaam, menu_data)
 		else:
 			print "Dan niet"
 	else:
 		print "\nGeen grafieken geselecteerd. Hoef niets te doen."
+
+def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
+	try:
+		import psycopg2
+		pg = psycopg2
+	except ImportError:
+		print "Module psycopg2 is not installed, please install it!"
+		raise
+	except:
+		print "Error while loading psycopg2 module!"
+		raise
+	try:
+		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % ("10.10.3.8", "9999", "tverdbp01", "mios", "K1HYC0haFBk9jvu71Bpf"))
+	except Exception:
+		print "Kon geen verbinding met de database maken"
+		raise
+	pg_cursor = pg_connection.cursor()
+
+	num_hosts = len(menu_data['options'])
+	pg_cursor.execute("delete from mios_report where hostgroupid = %s", (hostgroupid,))
+	# do not commit! stay in same transaction so rollback will work if an error occurs
+	for host in range(num_hosts):
+		num_graphs = len(menu_data['options'][host]['options'])
+		for graph in range(num_graphs):
+			if menu_data['options'][host]['options'][graph]['selected'] == 1:
+				try:
+					pg_cursor.execute("insert into mios_report (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname) values (%s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupnaam, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title']))
+				except:
+					print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
+					pg_connection.rollback()
+					pg_cursor.close()
+					pg_connection.close()
+					raise
+	pg_connection.commit()
+	pg_cursor.close()
+	pg_connection.close()
 
 def main():
 	# get host groups
@@ -284,6 +321,7 @@ def main():
 	for host in hosts:
 		menu_hosts = {}
 		menu_hosts['title'] = host
+		menu_hosts['hostid'] = hosts[host][0]
 		menu_hosts['type'] = 'MENU'
 		menu_hosts['subtitle'] = 'Vink de grafieken aan die in het rapport meegenomen moeten worden...'
 		graphs = hosts[host][1]
@@ -301,7 +339,7 @@ def main():
 
 	doMenu(menu)
 	os.system('clear')
-	storeGraphs(hostgroupid, hostgroupnaam, menu)
+	checkGraphs(hostgroupid, hostgroupnaam, menu)
 
 if  __name__ == "__main__":
 	options, args = get_options()
