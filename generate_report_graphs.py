@@ -73,6 +73,7 @@ def selectHostgroup():
 			hostgroupnr = int(raw_input('Selecteer hostgroup: '))
 			try:
 				hostgroupid = hostgroups[hostgroupnr][1]
+				hostgroupnaam = hostgroups[hostgroupnr][0]
 			except KeyError:
 				print "\nTellen is niet je sterkste punt h%s!" % chr(232)
 				hostgroupid = -1
@@ -85,7 +86,7 @@ def selectHostgroup():
 			os.system('read -N 1 -s')
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
-	return hostgroupid
+	return (hostgroupid, hostgroupnaam)
 
 def getHosts(hostgroupid):
 	hosts = {}
@@ -237,28 +238,43 @@ def doMenu(menu_data):
 	processmenu(menu_data)
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def storeGraphs(hostgroupid, menu_data):
+def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
+	any_graphs = 0
 	num_hosts = len(menu_data['options'])
+	print "Groep '%s':" % hostgroupnaam
 	for host in range(num_hosts):
-		print menu_data['options'][host]['title']
+		print '\t%s' % menu_data['options'][host]['title']
 		num_graphs = len(menu_data['options'][host]['options'])
 		selected_graphs_host = 0
 		for graph in range(num_graphs):
 			if menu_data['options'][host]['options'][graph]['selected'] == 1:
 				selected_graphs_host += 1
 		if selected_graphs_host > 0:
+			any_graphs = 1
 			for graph in range(num_graphs):
 				if menu_data['options'][host]['options'][graph]['selected'] == 1:
-					print "\t%s" % menu_data['options'][host]['options'][graph]['title']
+					print "\t\t%s" % menu_data['options'][host]['options'][graph]['title']
 		else:
-			print "\tGeen grafieken geselecteerd voor deze host"
-	print hostgroupid
+			print "\t\tGeen grafieken geselecteerd voor deze host"
+	if any_graphs:
+		antwoord = ""
+		while antwoord not in ["ja", "Ja", "nee", "Nee"]:
+			try:
+				antwoord = str(raw_input('\nWil je deze grafieken in de database opslaan? (Ja/Nee): '))
+			except KeyboardInterrupt: # Catch CTRL-C
+				pass
+		if antwoord in ["ja", "Ja"]:
+			print "OK"
+		else:
+			print "Dan niet"
+	else:
+		print "\nGeen grafieken geselecteerd. Hoef niets te doen."
 
 def main():
 	# get host groups
-	hostgroupid = selectHostgroup()
+	hostgroupid, hostgroupnaam = selectHostgroup()
 	os.system('clear')
-	print "De hosts en bijbehorende grafieken van de geselecteerde host group worden opgehaald..."
+	print "De hosts en bijbehorende grafieken van groep '%s' worden opgehaald..." % hostgroupnaam
 	# get the hosts and their graphs from selected host group
 	hosts = getHosts(hostgroupid)
 
@@ -285,7 +301,7 @@ def main():
 
 	doMenu(menu)
 	os.system('clear')
-	storeGraphs(hostgroupid, menu)
+	storeGraphs(hostgroupid, hostgroupnaam, menu)
 
 if  __name__ == "__main__":
 	options, args = get_options()
