@@ -52,11 +52,6 @@ def errmsg(msg):
 	sys.stderr.write(msg + "\n")
 	sys.exit(-1)
 
-class zHosts:
-	def __init__(self, groupname):
-		self.host_list = {}
-
-		
 def selectHostgroup():
 	teller = 0
 	hostgroups = {}
