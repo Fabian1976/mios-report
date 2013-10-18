@@ -114,14 +114,40 @@ def getGraph(graphid):
 	f = open(z_image_name, 'wb')
 	f.write(buffer.getvalue())
 	f.close()
-	
+
+def generateGraphs(hostgroupid):
+	try:
+		import psycopg2
+		import psycopg2.extras # Nodig om query resultaat als een dictionary terug te krijgen
+		pg = psycopg2
+	except ImportError:
+		print "Module psycopg2 is not installed, please install it!"
+		raise
+	except:
+		print "Error while loading psycopg2 module!"
+		raise
+	try:
+		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % ("10.10.3.8", "9999", "tverdbp01", "mios", "K1HYC0haFBk9jvu71Bpf"))
+	except Exception:
+		print "Kon geen verbinding met de database maken"
+		raise
+
+	pg_cursor = pg_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+	pg_cursor.execute("select * from mios_report where hostgroupid = %s", (hostgroupid,))
+	graphs = pg_cursor.fetchall()
+	pg_cursor.close()
+	pg_connection.close()
+	for graph in graphs:
+		os.system('clear')
+		print "Genereer grafiek %s van host %s" % (graph['graphname'], graph['hostname'])
+		getGraph(graph['graphid'])
+
 def main():
-	# get host groups
+	# get hostgroup
 	hostgroupid, hostgroupnaam = selectHostgroup()
 	os.system('clear')
-	print "De hosts en bijbehorende grafieken van groep '%s' worden opgehaald..." % hostgroupnaam
 	# get the hosts and their graphs from selected host group
-#	hosts = getHosts(hostgroupid)
+	generateGraphs(hostgroupid)
 
 if  __name__ == "__main__":
 	options, args = get_options()
