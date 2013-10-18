@@ -83,6 +83,8 @@ def selectHostgroup():
 			hostgroupid = -1
 			print "\nDruk op een toets om het nogmaals te proberen..."
 			os.system('read -N 1 -s')
+		except KeyboardInterrupt: # Catch CTRL-C
+			pass
 	return hostgroupid
 
 def getHosts(hostgroupid):
@@ -178,7 +180,11 @@ def runmenu(menu, parent):
 			screen.refresh()
 			# finished updating screen
 
-		x = screen.getch() # Gets user input
+		try:
+			x = screen.getch() # Gets user input
+		except KeyboardInterrupt: # Catch CTRL-C
+			x = 0
+			pass
 
 		# What is user input?
 		if x == 258: # down arrow
@@ -211,8 +217,8 @@ def processmenu(menu, parent=None):
 		getin = runmenu(menu, parent)
 		if getin == optioncount:
 			exitmenu = True
-		elif menu['options'][getin]['type'] == 'GRAPHID':
-			getGraph(menu['options'][getin]['graphid'])
+#		elif menu['options'][getin]['type'] == 'GRAPHID':
+#			getGraph(menu['options'][getin]['graphid'])
 		elif menu['options'][getin]['type'] == 'MENU':
 			processmenu(menu['options'][getin], menu) # display the submenu
 
@@ -231,17 +237,24 @@ def doMenu(menu_data):
 	processmenu(menu_data)
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-if  __name__ == "__main__":
-	options, args = get_options()
+def storeGraphs(hostgroupid, menu_data):
+	num_hosts = len(menu_data['options'])
+	for host in range(num_hosts):
+		print menu_data['options'][host]['title']
+		num_graphs = len(menu_data['options'][host]['options'])
+		selected_graphs_host = 0
+		for graph in range(num_graphs):
+			if menu_data['options'][host]['options'][graph]['selected'] == 1:
+				selected_graphs_host += 1
+		if selected_graphs_host > 0:
+			for graph in range(num_graphs):
+				if menu_data['options'][host]['options'][graph]['selected'] == 1:
+					print "\t%s" % menu_data['options'][host]['options'][graph]['title']
+		else:
+			print "\tGeen grafieken geselecteerd voor deze host"
+	print hostgroupid
 
-	zapi = ZabbixAPI(server=options.server,log_level=0)
-
-	try:
-		zapi.login(options.username, options.password)
-#		print "Zabbix API Version: %s" % zapi.api_version()
-	except ZabbixAPIException, e:
-		sys.stderr.write(str(e) + '\n')
-
+def main():
 	# get host groups
 	hostgroupid = selectHostgroup()
 	os.system('clear')
@@ -272,3 +285,17 @@ if  __name__ == "__main__":
 
 	doMenu(menu)
 	os.system('clear')
+	storeGraphs(hostgroupid, menu)
+
+if  __name__ == "__main__":
+	options, args = get_options()
+
+	zapi = ZabbixAPI(server=options.server,log_level=0)
+
+	try:
+		zapi.login(options.username, options.password)
+#		print "Zabbix API Version: %s" % zapi.api_version()
+	except ZabbixAPIException, e:
+		sys.stderr.write(str(e) + '\n')
+
+	main()
