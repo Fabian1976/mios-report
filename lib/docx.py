@@ -436,9 +436,22 @@ def picture(
     shutil.copyfile(picname, join(media_dir, picname))
 
     # Check if the user has specified a size
-    if not pixelwidth or not pixelheight:
+    if not pixelwidth and not pixelheight:
         # If not, get info from the picture itself
         pixelwidth, pixelheight = Image.open(picname).size[0:2]
+    # If only pixelwidth is provided, calculate pixelheigth with aspect ratio
+    if pixelwidth and not pixelheight:
+        img_pixelwidth = 0
+        img_pixelheight = 0
+        aspect_ratio = 0.0
+        img_pixelwidth, img_pixelheight = Image.open(picname).size[0:2]
+        aspect_ratio = float(pixelwidth) / float(img_pixelwidth)
+        print "pixelwidth / img_pixelwidth = %s / %s" % (pixelwidth, img_pixelwidth)
+        pixelheight = int(round(img_pixelheight * aspect_ratio))
+        print aspect_ratio
+	print pixelheight
+#        import sys
+#        sys.exit(1)
 
     # OpenXML measures on-screen objects in English Metric Units
     # 1cm = 36000 EMUs

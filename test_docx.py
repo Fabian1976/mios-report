@@ -12,7 +12,7 @@ See LICENSE for licensing information.
 """
 
 import sys
-sys.path.append("/home/mios/test/docx/lib")
+sys.path.append("/opt/mios/mios-report/lib")
 
 from docx import *
 
@@ -70,16 +70,16 @@ if __name__ == '__main__':
         body.append(paragraph(point, style='ListBullet'))
 
     # Add an image
-    relationships, picpara = picture(relationships, '995.png', 'Java Confluence ClassLoader', 450, 100)
+    relationships, picpara = picture(relationships, '995.png', 'Java Confluence ClassLoader', 450)
     body.append(picpara)
 
-    relationships, picpara = picture(relationships, '995.png', 'Java Confluence - Garbage collections per second')
+    relationships, picpara = picture(relationships, '995.png', 'Java Confluence - Garbage collections per second', 450)
     body.append(picpara)
 
-    relationships, picpara = picture(relationships, '1009.png', 'Java Confluence - Memory Pool Old Space')
+    relationships, picpara = picture(relationships, '1009.png', 'Java Confluence - Memory Pool Old Space', 450)
     body.append(picpara)
 
-    relationships, picpara = picture(relationships, '1015.png', 'Java Confluence - Garbage collections time spent')
+    relationships, picpara = picture(relationships, '1015.png', 'Java Confluence - Garbage collections time spent', 450)
     body.append(picpara)
 
 
