@@ -73,7 +73,7 @@ if __name__ == '__main__':
     relationships, picpara = picture(relationships, '995.png', 'Java Confluence ClassLoader', 450)
     body.append(picpara)
 
-    relationships, picpara = picture(relationships, '995.png', 'Java Confluence - Garbage collections per second', 450)
+    relationships, picpara = picture(relationships, '999.png', 'Java Confluence - Garbage collections per second', 450)
     body.append(picpara)
 
     relationships, picpara = picture(relationships, '1009.png', 'Java Confluence - Memory Pool Old Space', 450)
