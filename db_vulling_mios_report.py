@@ -313,7 +313,7 @@ def main():
 	# Menus bouwen
 	menu = {'title': 'Host list', 'type': 'MENU', 'subtitle': 'Selecteer een host...'}
 	menu_options = []
-	for host in hosts:
+	for host in sorted(hosts.iterkeys()):
 		menu_hosts = {}
 		menu_hosts['title'] = host
 		menu_hosts['hostid'] = hosts[host][0]
@@ -321,7 +321,7 @@ def main():
 		menu_hosts['subtitle'] = 'Vink de grafieken aan die in het rapport meegenomen moeten worden...'
 		graphs = hosts[host][1]
 		host_options = []
-		for graph in graphs:
+		for graph in sorted(graphs.iterkeys()):
 			menu_graphs = {}
 			menu_graphs['title'] = str(graph)
 			menu_graphs['type'] = 'GRAPHID'
