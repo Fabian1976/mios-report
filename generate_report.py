@@ -187,7 +187,12 @@ def generateReport(hostgroupname, data):
 	websettings = docx.websettings()
 	wordrelationships = docx.wordrelationships(relationships)
 	docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, 'Rapportage.docx')
-#	print hostgroupname, data
+	import glob # Unix style pathname pattern expansion
+	# Remove files which are no longer necessary
+	for file in glob.glob(mreport_home + '/*.png'):
+		os.remove(file)
+	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
+		os.remove(file)
 
 def main():
 	# get hostgroup
