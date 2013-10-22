@@ -6,6 +6,7 @@ create table mios_report
   hostname character varying(100),
   graphid numeric(10,0) not null,
   graphname character varying(100),
+  graphtype character varying(1),
   constraint pk_mios_report primary key (hostgroupid, hostid, graphid)
   using index tablespace mios_index
 )

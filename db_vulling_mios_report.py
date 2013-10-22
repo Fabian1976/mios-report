@@ -108,19 +108,19 @@ def getGraph(graphid):
 	z_url_index = z_server + 'index.php'
 	z_url_graph = z_server + 'chart2.php'
 	z_login_data = 'name=' + z_user + '&password=' + z_password + '&autologon=1&enter=Sign+in'
-	# Als de filename van de cookie leeg gelaten wordt, slaat curl de cookie op in het geheugen
-	# op deze manier hoeft de cookie achteraf niet verwijderd te worden. Als het script nu stop is de cookie ook weer weg
+	# When we leave the filename of the cookie empty, curl stores the cookie in memory
+	# so now the cookie doesn't have to be removed after usage. When the script finishes, the cookie is also gone
 	z_filename_cookie = ''
 	z_image_name = str(graphid) + '.png'
-	# Inloggen en cookie ophalen
+	# Log on to Zabbix and get session cookie
 	curl.setopt(curl.URL, z_url_index)
 	curl.setopt(curl.POSTFIELDS, z_login_data)
 	curl.setopt(curl.COOKIEJAR, z_filename_cookie)
 	curl.setopt(curl.COOKIEFILE, z_filename_cookie)
 	curl.perform()
-	# De graphs ophalen m.b.v. de cookie
-	# Bij alleen het opgeven van de periode gaat de grafiek zolang terug. In dit geval dus 604800 seconden (1 week) vanaf de huidige datum/tijdstip
-	# Men kan ook een start tijd opgeven (&stime=yyyymmddhh24mmss) Dus bijvoorbeeld: &stime=201310130000&period=86400 start vanaf 13-10-2013 en duurt 1 dag
+	# Retrieve graphs using cookie
+	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
+	# You can also give a starttime (&stime=yyyymmddhh24mm). Example: &stime=201310130000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
 	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=1200&height=200&period=604800')
 	curl.setopt(curl.WRITEFUNCTION, buffer.write)
 	curl.perform()
@@ -147,7 +147,7 @@ def runmenu(menu, parent):
 
 	# Loop until return key is pressed
 	while x !=ord('\n'):
-		if pos != oldpos or x == 32:
+		if pos != oldpos or x == 112 or x == 114:
 			oldpos = pos
 			screen.clear() #clears previous screen on key press and updates display based on pos
 			screen.border(0)
@@ -160,10 +160,12 @@ def runmenu(menu, parent):
 				if pos==index:
 					textstyle = h
 				if 'graphid' in menu['options'][index]:
-					if menu['options'][index]['selected'] == '1':
-						check = '[*]'
-					else:
+					if menu['options'][index]['selected'] == '0':
 						check = '[ ]'
+					elif menu['options'][index]['selected'] == 'p':
+						check = '[p]'
+					elif menu['options'][index]['selected'] == 'r':
+						check = '[r]'
 					screen.addstr(5+index,4, "%-50s %s" % (menu['options'][index]['title'], check), textstyle)
 				else:
 					screen.addstr(5+index,4, "%s" % menu['options'][index]['title'], textstyle)
@@ -193,12 +195,19 @@ def runmenu(menu, parent):
 				pos += -1
 			else:
 				pos = optioncount
-		elif x == 32:
+		elif x == 112: # p(erformance)
 			if 'graphid' in menu['options'][pos]:
-				if menu['options'][pos]['selected'] == '0':
-					menu['options'][pos]['selected'] = '1'
-				else:
+				if menu['options'][pos]['selected'] == 'p':
 					menu['options'][pos]['selected'] = '0'
+				else:
+					menu['options'][pos]['selected'] = 'p'
+			screen.refresh()
+		elif x == 114: # r(esources)
+			if 'graphid' in menu['options'][pos]:
+				if menu['options'][pos]['selected'] == 'r':
+					menu['options'][pos]['selected'] = '0'
+				else:
+					menu['options'][pos]['selected'] = 'r'
 			screen.refresh()
 		elif x != ord('\n'):
 			curses.flash()
@@ -242,13 +251,17 @@ def checkGraphs(hostgroupid, hostgroupnaam, menu_data):
 		num_graphs = len(menu_data['options'][host]['options'])
 		selected_graphs_host = 0
 		for graph in range(num_graphs):
-			if menu_data['options'][host]['options'][graph]['selected'] == '1':
+			if menu_data['options'][host]['options'][graph]['selected'] != '0':
 				selected_graphs_host += 1
 		if selected_graphs_host > 0:
 			any_graphs = 1
 			for graph in range(num_graphs):
-				if menu_data['options'][host]['options'][graph]['selected'] == '1':
-					print "\t\t%s" % menu_data['options'][host]['options'][graph]['title']
+				if menu_data['options'][host]['options'][graph]['selected'] == 'p':
+					graph_type = "Performance graph"
+				elif menu_data['options'][host]['options'][graph]['selected'] == 'r':
+					graph_type = "Resource graph"
+				if menu_data['options'][host]['options'][graph]['selected'] != '0':
+					print "\t\t%-18s: %s" % (graph_type, menu_data['options'][host]['options'][graph]['title'])
 		else:
 			print "\t\tGeen grafieken geselecteerd voor deze host"
 	if any_graphs:
@@ -289,9 +302,9 @@ def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
 	for host in range(num_hosts):
 		num_graphs = len(menu_data['options'][host]['options'])
 		for graph in range(num_graphs):
-			if menu_data['options'][host]['options'][graph]['selected'] == '1':
+			if menu_data['options'][host]['options'][graph]['selected'] != '0':
 				try:
-					pg_cursor.execute("insert into mios_report (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname) values (%s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupnaam, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title']))
+					pg_cursor.execute("insert into mios_report (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, %s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupnaam, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
 				except:
 					print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
 					pg_connection.rollback()
@@ -310,7 +323,7 @@ def main():
 	# get the hosts and their graphs from selected host group
 	hosts = getHosts(hostgroupid)
 
-	# Menus bouwen
+	# Build the menus
 	menu = {'title': 'Host list', 'type': 'MENU', 'subtitle': 'Selecteer een host...'}
 	menu_options = []
 	for host in sorted(hosts.iterkeys()):
