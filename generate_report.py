@@ -138,14 +138,8 @@ def generateGraphs(hostgroupid):
 	pg_cursor.close()
 	pg_connection.close()
 	return result
-#	for graph in graphs:
-#		os.system('clear')
-#		print "Generate graph '%s' from host '%s'" % (graph['graphname'], graph['hostname'])
-#		print graph
-#		getGraph(graph['graphid'])
 
 def generateReport(hostgroupname, data):
-#	from docx import *
 	import docx
 	relationships = docx.relationshiplist()
 	document = docx.newdocument()
