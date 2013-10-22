@@ -68,7 +68,7 @@ def selectHostgroup():
 			hostgroupnr = int(raw_input('Select hostgroup: '))
 			try:
 				hostgroupid = hostgroups[hostgroupnr][1]
-				hostgroupnaam = hostgroups[hostgroupnr][0]
+				hostgroupname = hostgroups[hostgroupnr][0]
 			except KeyError:
 				print "\nCounting is not your geatest asset!"
 				hostgroupid = -1
@@ -81,7 +81,7 @@ def selectHostgroup():
 			os.system('read -N 1 -s')
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
-	return (hostgroupid, hostgroupnaam)
+	return (hostgroupid, hostgroupname)
 
 def getHosts(hostgroupid):
 	hosts = {}
@@ -137,7 +137,7 @@ def runmenu(menu, parent):
 	if parent is None:
 		lastoption = "Done selecting graphs!"
 	else:
-		lastoption = "Back to menu %s" % parent['title']
+		lastoption = "Back to menu '%s'" % parent['title']
 
 	optioncount = len(menu['options']) # how many options in this menu
 
@@ -242,10 +242,10 @@ def doMenu(menu_data):
 	processmenu(menu_data)
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def checkGraphs(hostgroupid, hostgroupnaam, menu_data):
+def checkGraphs(hostgroupid, hostgroupname, menu_data):
 	any_graphs = 0
 	num_hosts = len(menu_data['options'])
-	print "Groep '%s':" % hostgroupnaam
+	print "Hostgroup '%s':" % hostgroupname
 	for host in range(num_hosts):
 		print '\t%s' % menu_data['options'][host]['title']
 		num_graphs = len(menu_data['options'][host]['options'])
@@ -273,13 +273,13 @@ def checkGraphs(hostgroupid, hostgroupnaam, menu_data):
 				pass
 		if antwoord in ["yes", "Yes"]:
 			print "OK"
-			storeGraphs(hostgroupid, hostgroupnaam, menu_data)
+			storeGraphs(hostgroupid, hostgroupname, menu_data)
 		else:
 			print "Then not"
 	else:
-		print "\nNo graphs selected. Don't have to do anything."
+		print "\nNo graphs selected. Nothing to do."
 
-def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
+def storeGraphs(hostgroupid, hostgroupname, menu_data):
 	try:
 		import psycopg2
 		pg = psycopg2
@@ -304,7 +304,7 @@ def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
 		for graph in range(num_graphs):
 			if menu_data['options'][host]['options'][graph]['selected'] != '0':
 				try:
-					pg_cursor.execute("insert into mios_report (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, %s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupnaam, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
+					pg_cursor.execute("insert into mios_report (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, %s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
 				except:
 					print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
 					pg_connection.rollback()
@@ -317,9 +317,9 @@ def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
 
 def main():
 	# get host groups
-	hostgroupid, hostgroupnaam = selectHostgroup()
+	hostgroupid, hostgroupname = selectHostgroup()
 	os.system('clear')
-	print "The hosts and related graphs from group '%s' are being fetched..." % hostgroupnaam
+	print "The hosts and related graphs from group '%s' are being fetched..." % hostgroupname
 	# get the hosts and their graphs from selected host group
 	hosts = getHosts(hostgroupid)
 
@@ -347,7 +347,7 @@ def main():
 
 	doMenu(menu)
 	os.system('clear')
-	checkGraphs(hostgroupid, hostgroupnaam, menu)
+	checkGraphs(hostgroupid, hostgroupname, menu)
 
 if  __name__ == "__main__":
 	options, args = get_options()
