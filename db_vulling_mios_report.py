@@ -61,23 +61,23 @@ def selectHostgroup():
 	hostgroupid = -1
 	while hostgroupid == -1:
 		os.system('clear')
-		print "Aanwezige hostgroups:"
+		print "Hostgroups:"
 		for hostgroup in hostgroups:
 			print '\t%2d: %s' % (hostgroup, hostgroups[hostgroup][0])
 		try:
-			hostgroupnr = int(raw_input('Selecteer hostgroup: '))
+			hostgroupnr = int(raw_input('Select hostgroup: '))
 			try:
 				hostgroupid = hostgroups[hostgroupnr][1]
 				hostgroupnaam = hostgroups[hostgroupnr][0]
 			except KeyError:
-				print "\nTellen is niet je sterkste punt h%s!" % chr(232)
+				print "\nCounting is not your geatest asset!"
 				hostgroupid = -1
-				print "\nDruk op een toets om het nogmaals te proberen..."
+				print "\nPress a key to try again..."
 				os.system('read -N 1 -s')
 		except ValueError:
-			print "\nEeuhm... Das geen nummer h%s!" % chr(232)
+			print "\nEeuhm... I don't think that's a number!"
 			hostgroupid = -1
-			print "\nDruk op een toets om het nogmaals te proberen..."
+			print "\nPress a key to try again..."
 			os.system('read -N 1 -s')
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
@@ -135,9 +135,9 @@ def runmenu(menu, parent):
 
 	# work out what text to display as the last menu option
 	if parent is None:
-		lastoption = "Klaar met grafieken aanvinken!"
+		lastoption = "Done selecting graphs!"
 	else:
-		lastoption = "Terug naar menu %s" % parent['title']
+		lastoption = "Back to menu %s" % parent['title']
 
 	optioncount = len(menu['options']) # how many options in this menu
 
@@ -263,21 +263,21 @@ def checkGraphs(hostgroupid, hostgroupnaam, menu_data):
 				if menu_data['options'][host]['options'][graph]['selected'] != '0':
 					print "\t\t%-18s: %s" % (graph_type, menu_data['options'][host]['options'][graph]['title'])
 		else:
-			print "\t\tGeen grafieken geselecteerd voor deze host"
+			print "\t\tNo graphs selected for this host"
 	if any_graphs:
 		antwoord = ""
-		while antwoord not in ["ja", "Ja", "nee", "Nee"]:
+		while antwoord not in ["yes", "Yes", "no", "No"]:
 			try:
-				antwoord = str(raw_input('\nWil je deze grafieken in de database opslaan (LET OP: de oude instellingen voor deze groep worden overschreven door deze nieuwe)? (Ja/Nee): '))
+				antwoord = str(raw_input('\nDo you want to store these graphs in the database (BEWARE: the old setting for this hostgroup will be overwritten by these new ones)? (Yes/No): '))
 			except KeyboardInterrupt: # Catch CTRL-C
 				pass
-		if antwoord in ["ja", "Ja"]:
+		if antwoord in ["yes", "Yes"]:
 			print "OK"
 			storeGraphs(hostgroupid, hostgroupnaam, menu_data)
 		else:
-			print "Dan niet"
+			print "Then not"
 	else:
-		print "\nGeen grafieken geselecteerd. Hoef niets te doen."
+		print "\nNo graphs selected. Don't have to do anything."
 
 def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
 	try:
@@ -292,7 +292,7 @@ def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
 	try:
 		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % ("10.10.3.8", "9999", "tverdbp01", "mios", "K1HYC0haFBk9jvu71Bpf"))
 	except Exception:
-		print "Kon geen verbinding met de database maken"
+		print "Cannot connect to database"
 		raise
 	pg_cursor = pg_connection.cursor()
 
@@ -319,19 +319,19 @@ def main():
 	# get host groups
 	hostgroupid, hostgroupnaam = selectHostgroup()
 	os.system('clear')
-	print "De hosts en bijbehorende grafieken van groep '%s' worden opgehaald..." % hostgroupnaam
+	print "The hosts and related graphs from group '%s' are being fetched..." % hostgroupnaam
 	# get the hosts and their graphs from selected host group
 	hosts = getHosts(hostgroupid)
 
 	# Build the menus
-	menu = {'title': 'Host list', 'type': 'MENU', 'subtitle': 'Selecteer een host...'}
+	menu = {'title': 'Host list', 'type': 'MENU', 'subtitle': 'Select a host...'}
 	menu_options = []
 	for host in sorted(hosts.iterkeys()):
 		menu_hosts = {}
 		menu_hosts['title'] = host
 		menu_hosts['hostid'] = hosts[host][0]
 		menu_hosts['type'] = 'MENU'
-		menu_hosts['subtitle'] = 'Vink de grafieken aan die in het rapport meegenomen moeten worden...'
+		menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph and "r" for a resource graph'
 		graphs = hosts[host][1]
 		host_options = []
 		for graph in sorted(graphs.iterkeys()):
