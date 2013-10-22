@@ -61,27 +61,27 @@ def selectHostgroup():
 	hostgroupid = -1
 	while hostgroupid == -1:
 		os.system('clear')
-		print "Aanwezige hostgroups:"
+		print "Hostgroups:"
 		for hostgroup in hostgroups:
 			print '\t%2d: %s' % (hostgroup, hostgroups[hostgroup][0])
 		try:
-			hostgroupnr = int(raw_input('Selecteer hostgroup: '))
+			hostgroupnr = int(raw_input('Select hostgroup: '))
 			try:
 				hostgroupid = hostgroups[hostgroupnr][1]
-				hostgroupnaam = hostgroups[hostgroupnr][0]
+				hostgroupname = hostgroups[hostgroupnr][0]
 			except KeyError:
-				print "\nTellen is niet je sterkste punt h%s!" % chr(232)
+				print "\nCounting is not your geatest asset!"
 				hostgroupid = -1
-				print "\nDruk op een toets om het nogmaals te proberen..."
+				print "\nPress a key to try again..."
 				os.system('read -N 1 -s')
 		except ValueError:
-			print "\nEeuhm... Das geen nummer h%s!" % chr(232)
+			print "\nEeuhm... I don't think that's a number!"
 			hostgroupid = -1
-			print "\nDruk op een toets om het nogmaals te proberen..."
+			print "\nPress a key to try again..."
 			os.system('read -N 1 -s')
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
-	return (hostgroupid, hostgroupnaam)
+	return (hostgroupid, hostgroupname)
 
 def getGraph(graphid):
 	import pycurl
@@ -95,19 +95,19 @@ def getGraph(graphid):
 	z_url_index = z_server + 'index.php'
 	z_url_graph = z_server + 'chart2.php'
 	z_login_data = 'name=' + z_user + '&password=' + z_password + '&autologon=1&enter=Sign+in'
-	# Als de filename van de cookie leeg gelaten wordt, slaat curl de cookie op in het geheugen
-	# op deze manier hoeft de cookie achteraf niet verwijderd te worden. Als het script nu stop is de cookie ook weer weg
+	# When we leave the filename of the cookie empty, curl stores the cookie in memory
+	# so now the cookie doesn't have to be removed after usage. When the script finishes, the cookie is also gone
 	z_filename_cookie = ''
 	z_image_name = str(graphid) + '.png'
-	# Inloggen en cookie ophalen
+	# Log on to Zabbix and get session cookie
 	curl.setopt(curl.URL, z_url_index)
 	curl.setopt(curl.POSTFIELDS, z_login_data)
 	curl.setopt(curl.COOKIEJAR, z_filename_cookie)
 	curl.setopt(curl.COOKIEFILE, z_filename_cookie)
 	curl.perform()
-	# De graphs ophalen m.b.v. de cookie
-	# Bij alleen het opgeven van de periode gaat de grafiek zolang terug. In dit geval dus 604800 seconden (1 week) vanaf de huidige datum/tijdstip
-	# Men kan ook een start tijd opgeven (&stime=yyyymmddhh24mmss) Dus bijvoorbeeld: &stime=201310130000&period=86400 start vanaf 13-10-2013 en duurt 1 dag
+	# Retrieve graphs using cookie
+	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
+	# You can also give a starttime (&stime=yyyymmddhh24mm). Example: &stime=201310130000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
 	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=1200&height=200&period=604800')
 	curl.setopt(curl.WRITEFUNCTION, buffer.write)
 	curl.perform()
@@ -118,7 +118,7 @@ def getGraph(graphid):
 def generateGraphs(hostgroupid):
 	try:
 		import psycopg2
-		import psycopg2.extras # Nodig om query resultaat als een dictionary terug te krijgen
+		import psycopg2.extras # Necessary to generate query results as a dictionary
 		pg = psycopg2
 	except ImportError:
 		print "Module psycopg2 is not installed, please install it!"
@@ -129,7 +129,7 @@ def generateGraphs(hostgroupid):
 	try:
 		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % ("10.10.3.8", "9999", "tverdbp01", "mios", "K1HYC0haFBk9jvu71Bpf"))
 	except Exception:
-		print "Kon geen verbinding met de database maken"
+		print "Cannot connect to database"
 		raise
 
 	pg_cursor = pg_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -139,12 +139,12 @@ def generateGraphs(hostgroupid):
 	pg_connection.close()
 	for graph in graphs:
 		os.system('clear')
-		print "Genereer grafiek %s van host %s" % (graph['graphname'], graph['hostname'])
+		print "Generate graph '%s' from host '%s'" % (graph['graphname'], graph['hostname'])
 		getGraph(graph['graphid'])
 
 def main():
 	# get hostgroup
-	hostgroupid, hostgroupnaam = selectHostgroup()
+	hostgroupid, hostgroupname = selectHostgroup()
 	os.system('clear')
 	# get the hosts and their graphs from selected host group
 	generateGraphs(hostgroupid)
