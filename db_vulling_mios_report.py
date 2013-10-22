@@ -91,7 +91,7 @@ def getHosts(hostgroupid):
 
 def getGraphs(hostid):
 	graphs = {}
-	selected = 0
+	selected = '0'
 	for graph in zapi.graph.get({ "output": "extend", "hostids":hostid }):
 		graphs[graph['name']] = (graph['graphid'], selected)
 	return graphs
@@ -160,7 +160,7 @@ def runmenu(menu, parent):
 				if pos==index:
 					textstyle = h
 				if 'graphid' in menu['options'][index]:
-					if menu['options'][index]['selected'] == 1:
+					if menu['options'][index]['selected'] == '1':
 						check = '[*]'
 					else:
 						check = '[ ]'
@@ -195,10 +195,10 @@ def runmenu(menu, parent):
 				pos = optioncount
 		elif x == 32:
 			if 'graphid' in menu['options'][pos]:
-				if menu['options'][pos]['selected'] == 0:
-					menu['options'][pos]['selected'] = 1
+				if menu['options'][pos]['selected'] == '0':
+					menu['options'][pos]['selected'] = '1'
 				else:
-					menu['options'][pos]['selected'] = 0
+					menu['options'][pos]['selected'] = '0'
 			screen.refresh()
 		elif x != ord('\n'):
 			curses.flash()
@@ -242,12 +242,12 @@ def checkGraphs(hostgroupid, hostgroupnaam, menu_data):
 		num_graphs = len(menu_data['options'][host]['options'])
 		selected_graphs_host = 0
 		for graph in range(num_graphs):
-			if menu_data['options'][host]['options'][graph]['selected'] == 1:
+			if menu_data['options'][host]['options'][graph]['selected'] == '1':
 				selected_graphs_host += 1
 		if selected_graphs_host > 0:
 			any_graphs = 1
 			for graph in range(num_graphs):
-				if menu_data['options'][host]['options'][graph]['selected'] == 1:
+				if menu_data['options'][host]['options'][graph]['selected'] == '1':
 					print "\t\t%s" % menu_data['options'][host]['options'][graph]['title']
 		else:
 			print "\t\tGeen grafieken geselecteerd voor deze host"
@@ -289,7 +289,7 @@ def storeGraphs(hostgroupid, hostgroupnaam, menu_data):
 	for host in range(num_hosts):
 		num_graphs = len(menu_data['options'][host]['options'])
 		for graph in range(num_graphs):
-			if menu_data['options'][host]['options'][graph]['selected'] == 1:
+			if menu_data['options'][host]['options'][graph]['selected'] == '1':
 				try:
 					pg_cursor.execute("insert into mios_report (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname) values (%s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupnaam, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title']))
 				except:
