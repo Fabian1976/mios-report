@@ -133,21 +133,69 @@ def generateGraphs(hostgroupid):
 		raise
 
 	pg_cursor = pg_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-	pg_cursor.execute("select * from mios_report where hostgroupid = %s", (hostgroupid,))
-	graphs = pg_cursor.fetchall()
+	pg_cursor.execute("select * from mios_report where hostgroupid = %s order by hostname, graphname", (hostgroupid,))
+	result = pg_cursor.fetchall()
 	pg_cursor.close()
 	pg_connection.close()
-	for graph in graphs:
-		os.system('clear')
-		print "Generate graph '%s' from host '%s'" % (graph['graphname'], graph['hostname'])
-		getGraph(graph['graphid'])
+	return result
+#	for graph in graphs:
+#		os.system('clear')
+#		print "Generate graph '%s' from host '%s'" % (graph['graphname'], graph['hostname'])
+#		print graph
+#		getGraph(graph['graphid'])
+
+def generateReport(hostgroupname, data):
+#	from docx import *
+	import docx
+	relationships = docx.relationshiplist()
+	document = docx.newdocument()
+	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
+
+	body.append(docx.heading("MIOS rapportage " + hostgroupname, 1))
+	hosts = []
+	for record in data:
+		if record['hostname'] not in hosts:
+			hosts.append(record['hostname'])
+	# Performance grafieken
+	body.append(docx.heading("Performance grafieken", 2))
+	for host in hosts:
+		body.append(docx.heading(host, 3))
+		for record in data:
+			if record['hostname'] == host and record['graphtype'] == 'p':
+				getGraph(record['graphid'])
+				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+				body.append(picpara)
+		body.append(docx.pagebreak(type='page', orient='portrait'))
+	# Resource grafieken
+	body.append(docx.heading("Resource grafieken", 2))
+	for host in hosts:
+		body.append(docx.heading(host, 3))
+		for record in data:
+			if record['hostname'] == host and record['graphtype'] == 'r':
+				getGraph(record['graphid'])
+				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+				body.append(picpara)
+		body.append(docx.pagebreak(type='page', orient='portrait'))
+
+	title = 'MIOS rapportage'
+	subject = 'Maandelijkse performance en resources rapportage'
+	creator = 'Vermont 24/7'
+	keywords = ['MIOS', 'Rapportage', 'Vermont']
+	coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
+	appprops = docx.appproperties()
+	contenttypes = docx.contenttypes()
+	websettings = docx.websettings()
+	wordrelationships = docx.wordrelationships(relationships)
+	docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, 'Rapportage.docx')
+#	print hostgroupname, data
 
 def main():
 	# get hostgroup
 	hostgroupid, hostgroupname = selectHostgroup()
 	os.system('clear')
 	# get the hosts and their graphs from selected host group
-	generateGraphs(hostgroupid)
+	result = generateGraphs(hostgroupid)
+	generateReport(hostgroupname, result)
 
 if  __name__ == "__main__":
 	options, args = get_options()
