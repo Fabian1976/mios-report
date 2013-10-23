@@ -263,9 +263,9 @@ def contenttypes():
     return types
 
 
-def heading(headingtext, headinglevel, lang='en'):
+def heading(headingtext, headinglevel, lang='nl'):
     '''Make a new heading, return the heading element'''
-    lmap = {'en': 'Heading', 'it': 'Titolo'}
+    lmap = {'en': 'Heading', 'it': 'Titolo', 'nl': 'Kop'}
     # Make our elements
     paragraph = makeelement('p')
     pr = makeelement('pPr')
