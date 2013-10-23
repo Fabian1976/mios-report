@@ -63,7 +63,8 @@ nsprefixes = {
     'pr':  'http://schemas.openxmlformats.org/package/2006/relationships',
     # Dublin Core document properties
     'dcmitype': 'http://purl.org/dc/dcmitype/',
-    'dcterms':  'http://purl.org/dc/terms/'}
+    'dcterms':  'http://purl.org/dc/terms/',
+    'xml': 'preserve'}
 
 
 def opendocx(file):
@@ -265,7 +266,7 @@ def contenttypes():
 
 def heading(headingtext, headinglevel, lang='nl'):
     '''Make a new heading, return the heading element'''
-    lmap = {'en': 'Heading', 'it': 'Titolo', 'nl': 'Kop'}
+    lmap = {'en': 'Heading', 'nl': 'Kop'}
     # Make our elements
     paragraph = makeelement('p')
     pr = makeelement('pPr')
@@ -281,6 +282,36 @@ def heading(headingtext, headinglevel, lang='nl'):
     # Return the combined paragraph
     return paragraph
 
+def caption(captiontext, lang='nl'):
+	'''Make a new caption, return the caption elemant'''
+	lmap = {'en': 'Caption', 'nl': 'Bijschrift'}
+	paragraph = makeelement('p')
+	pr = makeelement('pPr')
+	pStyle = makeelement('pStyle', attributes={'val': lmap[lang]})
+	run = makeelement('r')
+	text = makeelement('t', tagtext=captiontext)
+	pr.append(pStyle)
+	run.append(text)
+	paragraph.append(pr)
+	paragraph.append(run)
+	return paragraph
+
+def figureCaption(captiontext, lang='nl'):
+	# TODO
+	'''Make a new caption for a figure, return the caption element'''
+	lmap = {'en': 'Figure', 'nl': 'Figure'}
+	paragraph = makeelement('p')
+	pr = makeelement('pPr')
+	pStyle = makeelement('pStyle', attributes={'val': lmap[lang]})
+	run = makeelement('r')
+	text = makeelement('t', tagtext=captiontext)
+#	text = makeelement('t', nsprefix='xml',tagtext=captiontext, attributes={'space': "preserve"}, attrnsprefix='xml')
+#	text = makeelement('t', nsprefix='xml',tagtext=captiontext, attributes={'xml\:space': "preserve"})
+	pr.append(pStyle)
+	run.append(text)
+	paragraph.append(pr)
+	paragraph.append(run)
+	return paragraph
 
 def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0,
           twunit='auto', borders={}, celstyle=None):

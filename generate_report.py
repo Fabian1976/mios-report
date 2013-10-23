@@ -159,6 +159,7 @@ def generateReport(hostgroupname, data):
 				getGraph(record['graphid'])
 				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
 				body.append(picpara)
+				body.append(docx.caption(record['graphname']))
 		body.append(docx.pagebreak(type='page', orient='portrait'))
 	# Resource grafieken
 	body.append(docx.heading("Resource grafieken", 2))
@@ -169,6 +170,7 @@ def generateReport(hostgroupname, data):
 				getGraph(record['graphid'])
 				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
 				body.append(picpara)
+				body.append(docx.caption(record['graphname']))
 		body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	title = 'MIOS rapportage'
