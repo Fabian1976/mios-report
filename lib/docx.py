@@ -452,10 +452,15 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0,
 
 def picture(
         relationshiplist, picname, picdescription, pixelwidth=None,
-        pixelheight=None, nochangeaspect=True, nochangearrowheads=True):
+        pixelheight=None, nochangeaspect=True, nochangearrowheads=True, jc='left'):
     """
     Take a relationshiplist, picture file name, and return a paragraph
     containing the image and an updated relationshiplist.
+
+    @param string jc: Paragraph alignment, possible values:
+                      left, center, right, both (justified), ...
+                      see http://www.schemacentral.com/sc/ooxml/t-w_ST_Jc.html
+                      for a full list
     """
     # http://openxmldeveloper.org/articles/462.aspx
     # Create an image. Size may be specified, otherwise it will based on the
@@ -566,7 +571,11 @@ def picture(
     drawing.append(inline)
     run = makeelement('r')
     run.append(drawing)
+    pPr = makeelement('pPr')
+    pJc = makeelement('jc', attributes={'val': jc})
+    pPr.append(pJc)
     paragraph = makeelement('p')
+    paragraph.append(pPr)
     paragraph.append(run)
     return relationshiplist, paragraph
 
