@@ -958,6 +958,7 @@ def savedocx(document, coreprops=None, appprops=None, contenttypes=None, websett
 	prev_dir = os.path.abspath('.')  # save previous working dir
 	if not template:
 		os.chdir(template_dir)
+		# Serialize our trees into out zip file
 		treesandfiles = {document:          'word/document.xml',
 				 coreprops:         'docProps/core.xml',
 				 appprops:          'docProps/app.xml',
@@ -973,13 +974,6 @@ def savedocx(document, coreprops=None, appprops=None, contenttypes=None, websett
 				 coreprops:	    'docProps/core.xml',
 				 wordrelationships: 'word/_rels/document.xml.rels'}
 
-	# Serialize our trees into out zip file
-#	treesandfiles = {document:	    'word/document.xml',
-#			 coreprops:	    'docProps/core.xml',
-#			 appprops:	    'docProps/app.xml',
-#			 contenttypes:	    '[Content_Types].xml',
-#			 websettings:	    'word/webSettings.xml',
-#			 wordrelationships: 'word/_rels/document.xml.rels'}
 	for tree in treesandfiles:
 		log.info('Saving: %s' % treesandfiles[tree])
 		treestring = etree.tostring(tree, pretty_print=True)
