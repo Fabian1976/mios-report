@@ -183,9 +183,9 @@ def generateReport(hostgroupname, data):
 	creator = 'Vermont 24/7'
 	keywords = ['MIOS', 'Rapportage', 'Vermont']
 	coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
-	appprops = docx.appproperties()
 	wordrelationships = docx.wordrelationships(relationships)
 	if not existing_report:
+		appprops = docx.appproperties()
 		contenttypes = docx.contenttypes()
 		websettings = docx.websettings()
 		docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, 'Rapportage.docx')
@@ -193,7 +193,7 @@ def generateReport(hostgroupname, data):
 		import shutil, glob
 		for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 			shutil.copy2(file, mreport_home + '/tmp/word/media/')
-		docx.savedocx(document, wordrelationships=wordrelationships, output='Rapportage.docx', template=existing_report)
+		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output='Rapportage.docx', template=existing_report)
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
 	for file in glob.glob(mreport_home + '/*.png'):
