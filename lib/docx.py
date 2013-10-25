@@ -287,8 +287,7 @@ def figureCaption(captiontext, lang='nl'):
 	paragraph.append(run)
 	return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0,
-		  twunit='auto', borders={}, celstyle=None):
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
 	"""
 	Return a table element based on specified parameters
 
@@ -422,9 +421,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0,
 		table.append(row)
 	return table
 
-def picture(
-		relationshiplist, picname, picdescription, pixelwidth=None,
-		pixelheight=None, nochangeaspect=True, nochangearrowheads=True, jc='left'):
+def picture(relationshiplist, picname, picdescription, pixelwidth=None,	pixelheight=None, nochangeaspect=True, nochangearrowheads=True, jc='left'):
 	"""
 	Take a relationshiplist, picture file name, and return a paragraph
 	containing the image and an updated relationshiplist.
@@ -927,8 +924,7 @@ def wordrelationships(relationshiplist):
 		count += 1
 	return relationships
 
-def savedocx(document, coreprops, appprops, contenttypes, websettings,
-			 wordrelationships, output):
+def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, output):
 	'''Save a modified document'''
 	assert os.path.isdir(template_dir)
 	docxfile = zipfile.ZipFile(
