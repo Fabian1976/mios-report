@@ -981,12 +981,12 @@ def savedocx(document, coreprops, appprops, contenttypes, websettings,
 	os.chdir(template_dir)
 
 	# Serialize our trees into out zip file
-	treesandfiles = {document:	 'word/document.xml',
-					 coreprops:	'docProps/core.xml',
-					 appprops:	 'docProps/app.xml',
-					 contenttypes: '[Content_Types].xml',
-					 websettings:  'word/webSettings.xml',
-					 wordrelationships: 'word/_rels/document.xml.rels'}
+	treesandfiles = {document:	    'word/document.xml',
+			 coreprops:	    'docProps/core.xml',
+			 appprops:	    'docProps/app.xml',
+			 contenttypes:	    '[Content_Types].xml',
+			 websettings:	    'word/webSettings.xml',
+			 wordrelationships: 'word/_rels/document.xml.rels'}
 	for tree in treesandfiles:
 		log.info('Saving: %s' % treesandfiles[tree])
 		treestring = etree.tostring(tree, pretty_print=True)
