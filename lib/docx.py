@@ -46,26 +46,21 @@ nsprefixes = {
 	'mv':  'urn:schemas-microsoft-com:mac:vml',
 	'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
 	'v':   'urn:schemas-microsoft-com:vml',
-	'wp':  ('http://schemas.openxmlformats.org/drawingml/2006/wordprocessing'
-			'Drawing'),
+	'wp':  ('http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'),
 	# Properties (core and extended)
-	'cp':  ('http://schemas.openxmlformats.org/package/2006/metadata/core-pr'
-			'operties'),
+	'cp':  ('http://schemas.openxmlformats.org/package/2006/metadata/core-properties'),
 	'dc':  'http://purl.org/dc/elements/1.1/',
-	'ep':  ('http://schemas.openxmlformats.org/officeDocument/2006/extended-'
-			'properties'),
+	'ep':  ('http://schemas.openxmlformats.org/officeDocument/2006/extended-properties'),
 	'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
 	# Content Types
 	'ct':  'http://schemas.openxmlformats.org/package/2006/content-types',
 	# Package Relationships
-	'r':  ('http://schemas.openxmlformats.org/officeDocument/2006/relationsh'
-		   'ips'),
+	'r':  ('http://schemas.openxmlformats.org/officeDocument/2006/relationships'),
 	'pr':  'http://schemas.openxmlformats.org/package/2006/relationships',
 	# Dublin Core document properties
 	'dcmitype': 'http://purl.org/dc/dcmitype/',
 	'dcterms':  'http://purl.org/dc/terms/',
 	'xml': 'preserve'}
-
 
 def opendocx(file):
 	'''Open a docx file, return a document XML tree'''
@@ -74,15 +69,12 @@ def opendocx(file):
 	document = etree.fromstring(xmlcontent)
 	return document
 
-
 def newdocument():
 	document = makeelement('document')
 	document.append(makeelement('body'))
 	return document
 
-
-def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
-				attrnsprefix=None):
+def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None, attrnsprefix=None):
 	'''Create an element & return it'''
 	# Deal with list of nsprefix by making namespacemap
 	namespacemap = None
@@ -119,7 +111,6 @@ def makeelement(tagname, tagtext=None, nsprefix='w', attributes=None,
 		newelement.text = tagtext
 	return newelement
 
-
 def pagebreak(type='page', orient='portrait'):
 	'''Insert a break, default 'page'.
 	See http://openxmldeveloper.org/forums/thread/4075.aspx
@@ -141,13 +132,11 @@ def pagebreak(type='page', orient='portrait'):
 		if orient == 'portrait':
 			pgSz = makeelement('pgSz', attributes={'w': '12240', 'h': '15840'})
 		elif orient == 'landscape':
-			pgSz = makeelement('pgSz', attributes={'h': '12240', 'w': '15840',
-												   'orient': 'landscape'})
+			pgSz = makeelement('pgSz', attributes={'h': '12240', 'w': '15840', 'orient': 'landscape'})
 		sectPr.append(pgSz)
 		pPr.append(sectPr)
 		pagebreak.append(pPr)
 	return pagebreak
-
 
 def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
 	"""
@@ -216,7 +205,6 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
 	# Return the combined paragraph
 	return paragraph
 
-
 def contenttypes():
 	types = etree.fromstring(
 		'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>')
@@ -249,7 +237,6 @@ def contenttypes():
 		default_elm = makeelement('Default', nsprefix=None, attributes=attrs)
 		types.append(default_elm)
 	return types
-
 
 def heading(headingtext, headinglevel, lang='nl'):
 	'''Make a new heading, return the heading element'''
@@ -345,8 +332,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0,
 	tableprops = makeelement('tblPr')
 	tablestyle = makeelement('tblStyle', attributes={'val': ''})
 	tableprops.append(tablestyle)
-	tablewidth = makeelement(
-		'tblW', attributes={'w': str(tblw), 'type': str(twunit)})
+	tablewidth = makeelement('tblW', attributes={'w': str(tblw), 'type': str(twunit)})
 	tableprops.append(tablewidth)
 	if len(borders.keys()):
 		tableborders = makeelement('tblBorders')
@@ -436,7 +422,6 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0,
 		table.append(row)
 	return table
 
-
 def picture(
 		relationshiplist, picname, picdescription, pixelwidth=None,
 		pixelheight=None, nochangeaspect=True, nochangearrowheads=True, jc='left'):
@@ -477,15 +462,13 @@ def picture(
 	# Set relationship ID to the first available
 	picid = '2'
 	picrelid = 'rId'+str(len(relationshiplist)+1)
-	relationshiplist.append([
-		('http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'), 'media/'+picname])
+	relationshiplist.append([('http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'), 'media/'+picname])
 
 	# There are 3 main elements inside a picture
 	# 1. The Blipfill - specifies how the image fills the picture area
 	#	(stretch, tile, etc.)
 	blipfill = makeelement('blipFill', nsprefix='pic')
-	blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r',
-					attributes={'embed': picrelid}))
+	blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r', attributes={'embed': picrelid}))
 	stretch = makeelement('stretch', nsprefix='a')
 	stretch.append(makeelement('fillRect', nsprefix='a'))
 	blipfill.append(makeelement('srcRect', nsprefix='a'))
@@ -493,25 +476,18 @@ def picture(
 
 	# 2. The non visual picture properties
 	nvpicpr = makeelement('nvPicPr', nsprefix='pic')
-	cnvpr = makeelement(
-		'cNvPr', nsprefix='pic',
-		attributes={'id': '0', 'name': 'Picture 1', 'descr': picname})
+	cnvpr = makeelement('cNvPr', nsprefix='pic', attributes={'id': '0', 'name': 'Picture 1', 'descr': picname})
 	nvpicpr.append(cnvpr)
 	cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
-	cnvpicpr.append(makeelement(
-		'picLocks', nsprefix='a',
-		attributes={'noChangeAspect': str(int(nochangeaspect)),	'noChangeArrowheads': str(int(nochangearrowheads))}))
+	cnvpicpr.append(makeelement('picLocks', nsprefix='a', attributes={'noChangeAspect': str(int(nochangeaspect)),	'noChangeArrowheads': str(int(nochangearrowheads))}))
 	nvpicpr.append(cnvpicpr)
 
 	# 3. The Shape properties
 	sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
 	xfrm = makeelement('xfrm', nsprefix='a')
-	xfrm.append(makeelement(
-		'off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
-	xfrm.append(makeelement(
-		'ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
-	prstgeom = makeelement(
-		'prstGeom', nsprefix='a', attributes={'prst': 'rect'})
+	xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
+	xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
+	prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
 	prstgeom.append(makeelement('avLst', nsprefix='a'))
 	sppr.append(xfrm)
 	sppr.append(prstgeom)
@@ -524,9 +500,7 @@ def picture(
 
 	# Now make the supporting elements
 	# The following sequence is just: make element, then add its children
-	graphicdata = makeelement(
-		'graphicData', nsprefix='a',
-		attributes={'uri': ('http://schemas.openxmlformats.org/drawingml/2006/picture')})
+	graphicdata = makeelement('graphicData', nsprefix='a', attributes={'uri': ('http://schemas.openxmlformats.org/drawingml/2006/picture')})
 	graphicdata.append(pic)
 	graphic = makeelement('graphic', nsprefix='a')
 	graphic.append(graphicdata)
@@ -555,7 +529,6 @@ def picture(
 	paragraph.append(run)
 	return relationshiplist, paragraph
 
-
 def search(document, search):
 	'''Search a document for a regex, return success / fail result'''
 	result = False
@@ -566,7 +539,6 @@ def search(document, search):
 				if searchre.search(element.text):
 					result = True
 	return result
-
 
 def replace(document, search, replace):
 	"""
@@ -582,12 +554,10 @@ def replace(document, search, replace):
 					element.text = re.sub(search, replace, element.text)
 	return newdocument
 
-
 def clean(document):
 	""" Perform misc cleaning operations on documents.
 	    Returns cleaned document.
 	"""
-
 	newdocument = document
 
 	# Clean empty text and r tags
@@ -599,9 +569,7 @@ def clean(document):
 					rmlist.append(element)
 		for element in rmlist:
 			element.getparent().remove(element)
-
 	return newdocument
-
 
 def findTypeParent(element, tag):
 	""" Finds fist parent of element of the given type
@@ -617,10 +585,8 @@ def findTypeParent(element, tag):
 		p = p.getparent()
 		if p.tag == tag:
 			return p
-
 	# Not found
 	return None
-
 
 def AdvSearch(document, search, bs=3):
 	'''Return set of all regex matches
@@ -696,7 +662,6 @@ def AdvSearch(document, search, bs=3):
 								matches.append(match.group())
 								found = True
 	return set(matches)
-
 
 def advReplace(document, search, replace, bs=3):
 	"""
@@ -834,7 +799,6 @@ def advReplace(document, search, replace, bs=3):
 										searchels[i].text = ''
 	return newdocument
 
-
 def getdocumenttext(document):
 	'''Return the raw text of a document, as a list of paragraphs.'''
 	paratextlist = []
@@ -861,7 +825,6 @@ def getdocumenttext(document):
 		if not len(paratext) == 0:
 			paratextlist.append(paratext)
 	return paratextlist
-
 
 def coreproperties(title, subject, creator, keywords, lastmodifiedby=None):
 	"""
@@ -892,7 +855,6 @@ def coreproperties(title, subject, creator, keywords, lastmodifiedby=None):
 		) % (doctime, currenttime, doctime)
 		coreprops.append(etree.fromstring(elm_str))
 	return coreprops
-
 
 def appproperties():
 	"""
@@ -926,14 +888,12 @@ def appproperties():
 		appprops.append(makeelement(prop, tagtext=props[prop], nsprefix=None))
 	return appprops
 
-
 def websettings():
 	'''Generate websettings'''
 	web = makeelement('webSettings')
 	web.append(makeelement('allowPNG'))
 	web.append(makeelement('doNotSaveAsSingleFile'))
 	return web
-
 
 def relationshiplist():
 	relationshiplist =\
@@ -951,7 +911,6 @@ def relationshiplist():
 		  'relationships/theme', 'theme/theme1.xml']]
 	return relationshiplist
 
-
 def wordrelationships(relationshiplist):
 	'''Generate a Word relationships file'''
 	# Default list of relationships
@@ -967,7 +926,6 @@ def wordrelationships(relationshiplist):
 		relationships.append(rel_elm)
 		count += 1
 	return relationships
-
 
 def savedocx(document, coreprops, appprops, contenttypes, websettings,
 			 wordrelationships, output):
