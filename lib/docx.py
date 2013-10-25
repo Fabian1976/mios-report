@@ -866,21 +866,21 @@ def appproperties():
 		'-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocum'
 		'ent/2006/docPropsVTypes"></Properties>')
 	props =\
-		{'Template':			 'Normal.dotm',
-		 'TotalTime':			'6',
-		 'Pages':				'1',
-		 'Words':				'83',
-		 'Characters':		   '475',
-		 'Application':		  'Microsoft Word 12.0.0',
-		 'DocSecurity':		  '0',
-		 'Lines':				'12',
-		 'Paragraphs':		   '8',
-		 'ScaleCrop':			'false',
-		 'LinksUpToDate':		'false',
+		{'Template':		 'Normal.dotm',
+		 'TotalTime':		 '6',
+		 'Pages':		 '1',
+		 'Words':		 '83',
+		 'Characters':		 '475',
+		 'Application':		 'Microsoft Word 12.0.0',
+		 'DocSecurity':		 '0',
+		 'Lines':		 '12',
+		 'Paragraphs':		 '8',
+		 'ScaleCrop':		 'false',
+		 'LinksUpToDate':	 'false',
 		 'CharactersWithSpaces': '583',
-		 'SharedDoc':			'false',
-		 'HyperlinksChanged':	'false',
-		 'AppVersion':		   '12.0000'}
+		 'SharedDoc':		 'false',
+		 'HyperlinksChanged':	 'false',
+		 'AppVersion':		 '12.0000'}
 	for prop in props:
 		appprops.append(makeelement(prop, tagtext=props[prop], nsprefix=None))
 	return appprops
