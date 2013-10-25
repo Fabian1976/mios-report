@@ -59,8 +59,7 @@ nsprefixes = {
 	'pr':  'http://schemas.openxmlformats.org/package/2006/relationships',
 	# Dublin Core document properties
 	'dcmitype': 'http://purl.org/dc/dcmitype/',
-	'dcterms':  'http://purl.org/dc/terms/',
-	'xml': 'preserve'}
+	'dcterms':  'http://purl.org/dc/terms/'}
 
 def unzip_tmp(path):
 	zfile = zipfile.ZipFile(path)
