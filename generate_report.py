@@ -141,10 +141,15 @@ def generateGraphs(hostgroupid):
 
 def generateReport(hostgroupname, data):
 	import docx
-	relationships = docx.relationshiplist()
-	document = docx.newdocument()
-	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 
+	existing_report = 'VermontTemplate.docx' # Leave empty for new file
+#	existing_report = ''
+	if not existing_report:
+		document = docx.newdocument()
+	else:
+		document = docx.opendocx(existing_report)
+	relationships = docx.relationshiplist(existing_report)
+	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 	body.append(docx.heading("MIOS rapportage " + hostgroupname, 1))
 	hosts = []
 	for record in data:
@@ -179,16 +184,27 @@ def generateReport(hostgroupname, data):
 	keywords = ['MIOS', 'Rapportage', 'Vermont']
 	coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
 	appprops = docx.appproperties()
-	contenttypes = docx.contenttypes()
-	websettings = docx.websettings()
 	wordrelationships = docx.wordrelationships(relationships)
-	docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, 'Rapportage.docx')
+	if not existing_report:
+		contenttypes = docx.contenttypes()
+		websettings = docx.websettings()
+		docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, 'Rapportage.docx')
+	else:
+		import shutil, glob
+		for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
+			shutil.copy2(file, mreport_home + '/tmp/word/media/')
+		docx.savedocx(document, wordrelationships=wordrelationships, output='Rapportage.docx', template=existing_report)
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
 	for file in glob.glob(mreport_home + '/*.png'):
 		os.remove(file)
 	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 		os.remove(file)
+	for root, dirs, files in os.walk(mreport_home + '/tmp/', topdown=False):
+		for name in files:
+			os.remove(os.path.join(root, name))
+		for name in dirs:
+			os.rmdir(os.path.join(root, name))
 
 def main():
 	# get hostgroup

@@ -8,7 +8,7 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 """
 
-import logging
+import logging, sys
 from lxml import etree
 try:
 	from PIL import Image
@@ -62,11 +62,27 @@ nsprefixes = {
 	'dcterms':  'http://purl.org/dc/terms/',
 	'xml': 'preserve'}
 
+def unzip_tmp(path):
+	zfile = zipfile.ZipFile(path)
+	for name in zfile.namelist():
+		(dirname, filename) = os.path.split(name)
+		if filename == '':
+			# directory
+			if not os.path.exists('./tmp/' + dirname):
+				os.mkdir('./tmp/' + dirname)
+		else:
+			# file
+			fd = open('./tmp/' + name, 'wb')
+			fd.write(zfile.read(name))
+			fd.close()
+	zfile.close()
+
 def opendocx(file):
 	'''Open a docx file, return a document XML tree'''
 	mydoc = zipfile.ZipFile(file)
 	xmlcontent = mydoc.read('word/document.xml')
 	document = etree.fromstring(xmlcontent)
+	unzip_tmp(file)
 	return document
 
 def newdocument():
@@ -892,20 +908,31 @@ def websettings():
 	web.append(makeelement('doNotSaveAsSingleFile'))
 	return web
 
-def relationshiplist():
-	relationshiplist =\
-		[['http://schemas.openxmlformats.org/officeDocument/2006/'
-		  'relationships/numbering', 'numbering.xml'],
-		 ['http://schemas.openxmlformats.org/officeDocument/2006/'
-		  'relationships/styles', 'styles.xml'],
-		 ['http://schemas.openxmlformats.org/officeDocument/2006/'
-		  'relationships/settings', 'settings.xml'],
-		 ['http://schemas.openxmlformats.org/officeDocument/2006/'
-		  'relationships/webSettings', 'webSettings.xml'],
-		 ['http://schemas.openxmlformats.org/officeDocument/2006/'
-		  'relationships/fontTable', 'fontTable.xml'],
-		 ['http://schemas.openxmlformats.org/officeDocument/2006/'
-		  'relationships/theme', 'theme/theme1.xml']]
+def relationshiplist(fromFile):
+	if not fromFile:
+		# Create relationshiplist from scratch
+		relationshiplist =\
+			[['http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering', 'numbering.xml'],
+			 ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles', 'styles.xml'],
+			 ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings', 'settings.xml'],
+			 ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings', 'webSettings.xml'],
+			 ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable', 'fontTable.xml'],
+			 ['http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme', 'theme/theme1.xml']]
+	else:
+		# Get relationshiplist from template "fromFile"
+		tmp_relationshiplist = []
+		import xml.etree.ElementTree as ET
+		tree = ET.parse('./tmp/word/_rels/document.xml.rels')
+		root = tree.getroot()
+		for child in root:
+			id = child.get('Id').split('Id')[1] # Add id for sorting purposes
+			item = [int(id), child.get('Type'), child.get('Target')]
+			tmp_relationshiplist.append(item)
+		tmp_relationshiplist.sort()
+		relationshiplist = []
+		for relationship in tmp_relationshiplist:
+			item = [relationship[1], relationship[2]]
+			relationshiplist.append(item)
 	return relationshiplist
 
 def wordrelationships(relationshiplist):
@@ -914,8 +941,7 @@ def wordrelationships(relationshiplist):
 	# FIXME: using string hack instead of making element
 	#relationships = makeelement('Relationships', nsprefix='pr')
 	relationships = etree.fromstring(
-		'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006'
-		'/relationships"></Relationships>')
+		'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>')
 	count = 0
 	for relationship in relationshiplist:
 		# Relationship IDs (rId) start at 1.
@@ -924,23 +950,35 @@ def wordrelationships(relationshiplist):
 		count += 1
 	return relationships
 
-def savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, output):
+def savedocx(document, coreprops=None, appprops=None, contenttypes=None, websettings=None, wordrelationships=None, output=None, template=None):
 	'''Save a modified document'''
 	assert os.path.isdir(template_dir)
-	docxfile = zipfile.ZipFile(
-		output, mode='w', compression=zipfile.ZIP_DEFLATED)
+	docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
 
 	# Move to the template data path
 	prev_dir = os.path.abspath('.')  # save previous working dir
-	os.chdir(template_dir)
+	if not template:
+		os.chdir(template_dir)
+		treesandfiles = {document:          'word/document.xml',
+				 coreprops:         'docProps/core.xml',
+				 appprops:          'docProps/app.xml',
+				 contenttypes:      '[Content_Types].xml',
+				 websettings:       'word/webSettings.xml',
+				 wordrelationships: 'word/_rels/document.xml.rels'}
+	else:
+		os.chdir('./tmp/')
+		os.remove('word/document.xml')
+		os.remove('word/_rels/document.xml.rels')
+		treesandfiles = {document:          'word/document.xml',
+				 wordrelationships: 'word/_rels/document.xml.rels'}
 
 	# Serialize our trees into out zip file
-	treesandfiles = {document:	    'word/document.xml',
-			 coreprops:	    'docProps/core.xml',
-			 appprops:	    'docProps/app.xml',
-			 contenttypes:	    '[Content_Types].xml',
-			 websettings:	    'word/webSettings.xml',
-			 wordrelationships: 'word/_rels/document.xml.rels'}
+#	treesandfiles = {document:	    'word/document.xml',
+#			 coreprops:	    'docProps/core.xml',
+#			 appprops:	    'docProps/app.xml',
+#			 contenttypes:	    '[Content_Types].xml',
+#			 websettings:	    'word/webSettings.xml',
+#			 wordrelationships: 'word/_rels/document.xml.rels'}
 	for tree in treesandfiles:
 		log.info('Saving: %s' % treesandfiles[tree])
 		treestring = etree.tostring(tree, pretty_print=True)
