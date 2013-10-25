@@ -254,7 +254,7 @@ def contenttypes():
 		types.append(default_elm)
 	return types
 
-def heading(headingtext, headinglevel, lang='nl'):
+def heading(headingtext, headinglevel, lang='en'):
 	'''Make a new heading, return the heading element'''
 	lmap = {'en': 'Heading', 'nl': 'Kop'}
 	# Make our elements
@@ -272,7 +272,7 @@ def heading(headingtext, headinglevel, lang='nl'):
 	# Return the combined paragraph
 	return paragraph
 
-def caption(captiontext, lang='nl'):
+def caption(captiontext, lang='en'):
 	'''Make a new caption, return the caption elemant'''
 	lmap = {'en': 'Caption', 'nl': 'Bijschrift'}
 	paragraph = makeelement('p')
@@ -968,8 +968,10 @@ def savedocx(document, coreprops=None, appprops=None, contenttypes=None, websett
 	else:
 		os.chdir('./tmp/')
 		os.remove('word/document.xml')
+		os.remove('docProps/core.xml')
 		os.remove('word/_rels/document.xml.rels')
 		treesandfiles = {document:          'word/document.xml',
+				 coreprops:	    'docProps/core.xml',
 				 wordrelationships: 'word/_rels/document.xml.rels'}
 
 	# Serialize our trees into out zip file
