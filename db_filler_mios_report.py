@@ -3,7 +3,6 @@ __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
 __version__   = "1.0"
 
-#import optparse
 import ConfigParser
 import sys, os
 import time
@@ -102,15 +101,6 @@ class Config:
 			self.report_graph_width = self.config.get('report', 'graph_width')
 		except:
 			self.report_graph_width = '1200'
-
-def show_help(p):
-	p.print_help()
-	print "NOTE: Zabbix 1.8.0 doesn't check LDAP when authenticating."
-	sys.exit(-1)
-
-def errmsg(msg):
-	sys.stderr.write(msg + "\n")
-	sys.exit(-1)
 
 def selectHostgroup():
 	teller = 0
