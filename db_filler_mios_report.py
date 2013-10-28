@@ -146,38 +146,6 @@ def getGraphs(hostid):
 		graphs[graph['name']] = (graph['graphid'], selected)
 	return graphs
 
-def getGraph(graphid):
-	import pycurl
-	import StringIO
-	curl = pycurl.Curl()
-	buffer = StringIO.StringIO()
-
-	z_server = config.zabbix_frontend
-	z_user = config.zabbix_user
-	z_password = config.zabbix_password
-	z_url_index = z_server + 'index.php'
-	z_url_graph = z_server + 'chart2.php'
-	z_login_data = 'name=' + z_user + '&password=' + z_password + '&autologon=1&enter=Sign+in'
-	# When we leave the filename of the cookie empty, curl stores the cookie in memory
-	# so now the cookie doesn't have to be removed after usage. When the script finishes, the cookie is also gone
-	z_filename_cookie = ''
-	z_image_name = str(graphid) + '.png'
-	# Log on to Zabbix and get session cookie
-	curl.setopt(curl.URL, z_url_index)
-	curl.setopt(curl.POSTFIELDS, z_login_data)
-	curl.setopt(curl.COOKIEJAR, z_filename_cookie)
-	curl.setopt(curl.COOKIEFILE, z_filename_cookie)
-	curl.perform()
-	# Retrieve graphs using cookie
-	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
-	# You can also give a starttime (&stime=yyyymmddhh24mmss). Example: &stime=20131013000000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
-	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=1200&height=200&period=604800')
-	curl.setopt(curl.WRITEFUNCTION, buffer.write)
-	curl.perform()
-	f = open(z_image_name, 'wb')
-	f.write(buffer.getvalue())
-	f.close()
-	
 def runmenu(menu, parent):
 
 	h = curses.color_pair(1) #h is the coloring for a highlighted menu option
@@ -272,8 +240,6 @@ def processmenu(menu, parent=None):
 		getin = runmenu(menu, parent)
 		if getin == optioncount:
 			exitmenu = True
-#		elif menu['options'][getin]['type'] == 'GRAPHID':
-#			getGraph(menu['options'][getin]['graphid'])
 		elif menu['options'][getin]['type'] == 'MENU':
 			processmenu(menu['options'][getin], menu) # display the submenu
 
@@ -340,7 +306,7 @@ def storeGraphs(hostgroupid, hostgroupname, menu_data):
 		print "Error while loading psycopg2 module!"
 		raise
 	try:
-		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % ("10.10.3.8", "9999", "tverdbp01", "mios", "K1HYC0haFBk9jvu71Bpf"))
+		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (config.postgres_host, config.postgres_port, config.postgres_dbname, config.postgres_user, config.postgres_password))
 	except Exception:
 		print "Cannot connect to database"
 		raise
