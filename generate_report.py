@@ -183,7 +183,12 @@ def getGraph(graphid):
 	# Retrieve graphs using cookie
 	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
 	# You can also give a starttime (&stime=yyyymmddhh24mm). Example: &stime=201310130000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
-	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&period=604800')
+	if config.report_start_date == '':
+		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&period=' + str(config.report_period))
+	else:
+		day, month, year = config.report_start_date.split('-')
+		stime = year + month + day + '000000'
+		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period))
 	curl.setopt(curl.WRITEFUNCTION, buffer.write)
 	curl.perform()
 	f = open(z_image_name, 'wb')
