@@ -99,11 +99,14 @@ class Config:
 		try:
 			self.report_period = self.config.get('report', 'period')
 			# Convert period to seconds
-			import re, calendar
+			import re, calendar, datetime
 			match = re.match(r"([0-9]+)([a-z]+)", self.report_period, re.I)
 			if match:
 				period_items = match.groups()
-			day, month, year = map(int, self.report_start_date.split('-'))
+			if self.report_start_date == '':
+				day, month, year = map(int, datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y').split('-'))
+			else:
+				day, month, year = map(int, self.report_start_date.split('-'))
 			seconds_in_day = 86400
 			if period_items[1] == 'd':
 				total_seconds = int(period_items[0]) * seconds_in_day
