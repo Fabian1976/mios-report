@@ -262,8 +262,8 @@ def generateReport(hostgroupname, data):
 	if not existing_report:
 		document = docx.newdocument()
 	else:
-		document = docx.opendocx(existing_report)
-	relationships = docx.relationshiplist(existing_report)
+		document = docx.opendocx(existing_report, mreport_home + '/tmp')
+	relationships = docx.relationshiplist(existing_report, mreport_home + '/tmp')
 	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 	body.append(docx.heading("MIOS rapportage " + hostgroupname, 1))
 	hosts = []
@@ -299,7 +299,7 @@ def generateReport(hostgroupname, data):
 	keywords = ['MIOS', 'Rapportage', 'Vermont']
 	coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
 	wordrelationships = docx.wordrelationships(relationships)
-	config.report_name = config.report_name.split('.')[0] + '_' + hostgroupname.replace(' ', '_') + '_' + config.report_start_date + '_' + config.report_end_date
+	config.report_name = config.report_name.split('.')[0] + '_' + hostgroupname.replace(' ', '_') + '_' + config.report_start_date + '_' + config.report_end_date + '.docx'
 	if not existing_report:
 		appprops = docx.appproperties()
 		contenttypes = docx.contenttypes()
@@ -309,10 +309,10 @@ def generateReport(hostgroupname, data):
 		import shutil, glob
 		for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 			shutil.copy2(file, mreport_home + '/tmp/word/media/')
-		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output=config.report_name, template=existing_report)
+		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output=config.report_name, template=existing_report, tmp_folder=mreport_home + '/tmp')
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
-	for file in glob.glob(mreport_home + '/*.png'):
+	for file in glob.glob(mreport_home + '/bin/*.png'):
 		os.remove(file)
 	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 		os.remove(file)
