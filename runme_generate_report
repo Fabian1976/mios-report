@@ -1,2 +1,0 @@
-#!/bin/bash
-./generate_report.py -s http://10.10.2.102/zabbix/ -u admin -p 4RwtN1ggi1JhUV7Jq6Xt

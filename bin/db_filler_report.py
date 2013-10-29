@@ -1,9 +1,9 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "1.0"
+__version__   = "2.0"
 
-import optparse
+import ConfigParser
 import sys, os
 import time
 import traceback
@@ -19,42 +19,88 @@ from zabbix_api import ZabbixAPI, ZabbixAPIException
 
 import curses, os #curses is the interface for capturing key presses on the menu, os launches the files
 
-def get_options():
-	""" command-line options """
+class Config:
+	def __init__(self, conf_file):
+		self.config = None
+		self.zabbix_frontend = ''
+		self.zabbix_user = ''
+		self.zabbix_password = ''
+		self.postgres_dbname = ''
+		self.postgres_host = ''
+		self.postgres_port = ''
+		self.postgres_user = ''
+		self.postgres_password = ''
+		self.report_name = ''
+		self.report_template = ''
+		self.report_start_date = ''
+		self.report_period = ''
+		self.report_graph_width = ''
+		try:
+			self.mreport_home = os.environ['MREPORT_HOME']
+		except:
+			self.mreport_home = '/opt/mios/mios-report'
 
-	usage = "usage: %prog [options]"
-	OptionParser = optparse.OptionParser
-	parser = OptionParser(usage)
+		self.conf_file = conf_file
+		if not os.path.exists(self.conf_file):
+			print "Can't open config file %s" % self.conf_file
+			exit(1)
 
-	parser.add_option("-s", "--server", action="store", type="string", dest="server", help="Zabbix Server URL (REQUIRED)")
-	parser.add_option("-u", "--username", action="store", type="string", dest="username", help="Username (Will prompt if not given)")
-	parser.add_option("-p", "--password", action="store", type="string", dest="password", help="Password (Will prompt if not given)")
+		self.config = ConfigParser.ConfigParser()
+		self.config.read(self.conf_file)
 
-	options, args = parser.parse_args()
-
-	if not options.server:
-		show_help(parser)
-
-	if not options.username:
-		options.username = raw_input('Username: ')
-
-	if not options.password:
-		options.password = getpass()
-
-	# apply clue to user...
-	if not options.username and not options.password:
-		show_help(parser)
-
-	return options, args
-
-def show_help(p):
-	p.print_help()
-	print "NOTE: Zabbix 1.8.0 doesn't check LDAP when authenticating."
-	sys.exit(-1)
-
-def errmsg(msg):
-	sys.stderr.write(msg + "\n")
-	sys.exit(-1)
+	def parse(self):
+		try:
+			self.zabbix_frontend = self.config.get('common', 'zabbix_frontend')
+		except:
+			self.zabbix_frontend = 'localhost'
+		try:
+			self.zabbix_user = self.config.get('common', 'zabbix_user')
+		except:
+			self.zabbix_user = 'admin'
+		try:
+			self.zabbix_password = self.config.get('common', 'zabbix_password')
+		except:
+			self.zabbix_password = ''
+		try:
+			self.postgres_dbname = self.config.get('miosdb', 'dbname')
+		except:
+			self.postgres_dbname = 'postgres'
+		try:
+			self.postgres_host = self.config.get('miosdb', 'host')
+		except:
+			self.postgres_host = 'localhost'
+		try:
+			self.postgres_port = self.config.get('miosdb', 'port')
+		except:
+			self.portgres_post = '5432'
+		try:
+			self.postgres_user = self.config.get('miosdb', 'user')
+		except:
+			self.postgres_user = 'postgres'
+		try:
+			self.postgres_password = self.config.get('miosdb', 'password')
+		except:
+			self.postgres_password = 'postgres'
+		try:
+			self.report_name = self.config.get('report', 'name')
+		except:
+			self.report_name = 'Report.docx'
+		try:
+			self.report_template = self.config.get('report', 'template')
+		except:
+			self.report_template = ''
+		try:
+			self.report_start_date = self.config.get('report', 'start_date')
+		except:
+			self.report_start_date = ''
+		try:
+			self.report_period = self.config.get('report', 'period')
+		except:
+			self.report_period = '1m'
+		try:
+			self.report_graph_width = self.config.get('report', 'graph_width')
+		except:
+			self.report_graph_width = '1200'
 
 def selectHostgroup():
 	teller = 0
@@ -100,38 +146,6 @@ def getGraphs(hostid):
 		graphs[graph['name']] = (graph['graphid'], selected)
 	return graphs
 
-def getGraph(graphid):
-	import pycurl
-	import StringIO
-	curl = pycurl.Curl()
-	buffer = StringIO.StringIO()
-
-	z_server = options.server
-	z_user = options.username
-	z_password = options.password
-	z_url_index = z_server + 'index.php'
-	z_url_graph = z_server + 'chart2.php'
-	z_login_data = 'name=' + z_user + '&password=' + z_password + '&autologon=1&enter=Sign+in'
-	# When we leave the filename of the cookie empty, curl stores the cookie in memory
-	# so now the cookie doesn't have to be removed after usage. When the script finishes, the cookie is also gone
-	z_filename_cookie = ''
-	z_image_name = str(graphid) + '.png'
-	# Log on to Zabbix and get session cookie
-	curl.setopt(curl.URL, z_url_index)
-	curl.setopt(curl.POSTFIELDS, z_login_data)
-	curl.setopt(curl.COOKIEJAR, z_filename_cookie)
-	curl.setopt(curl.COOKIEFILE, z_filename_cookie)
-	curl.perform()
-	# Retrieve graphs using cookie
-	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
-	# You can also give a starttime (&stime=yyyymmddhh24mm). Example: &stime=201310130000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
-	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=1200&height=200&period=604800')
-	curl.setopt(curl.WRITEFUNCTION, buffer.write)
-	curl.perform()
-	f = open(z_image_name, 'wb')
-	f.write(buffer.getvalue())
-	f.close()
-	
 def runmenu(menu, parent):
 
 	h = curses.color_pair(1) #h is the coloring for a highlighted menu option
@@ -226,8 +240,6 @@ def processmenu(menu, parent=None):
 		getin = runmenu(menu, parent)
 		if getin == optioncount:
 			exitmenu = True
-#		elif menu['options'][getin]['type'] == 'GRAPHID':
-#			getGraph(menu['options'][getin]['graphid'])
 		elif menu['options'][getin]['type'] == 'MENU':
 			processmenu(menu['options'][getin], menu) # display the submenu
 
@@ -294,7 +306,7 @@ def storeGraphs(hostgroupid, hostgroupname, menu_data):
 		print "Error while loading psycopg2 module!"
 		raise
 	try:
-		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % ("10.10.3.8", "9999", "tverdbp01", "mios", "K1HYC0haFBk9jvu71Bpf"))
+		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (config.postgres_host, config.postgres_port, config.postgres_dbname, config.postgres_user, config.postgres_password))
 	except Exception:
 		print "Cannot connect to database"
 		raise
@@ -354,12 +366,19 @@ def main():
 	checkGraphs(hostgroupid, hostgroupname, menu)
 
 if  __name__ == "__main__":
-	options, args = get_options()
+	global config
+	try:
+		mreport_home = os.environ['MREPORT_HOME']
+	except:
+		mreport_home = "/opt/mios/mios-report"
 
-	zapi = ZabbixAPI(server=options.server,log_level=0)
+	config_file = mreport_home + '/conf/mios-report.conf'
+	config = Config(config_file)
+	config.parse()
+	zapi = ZabbixAPI(server=config.zabbix_frontend,log_level=0)
 
 	try:
-		zapi.login(options.username, options.password)
+		zapi.login(config.zabbix_user, config.zabbix_password)
 #		print "Zabbix API Version: %s" % zapi.api_version()
 	except ZabbixAPIException, e:
 		sys.stderr.write(str(e) + '\n')

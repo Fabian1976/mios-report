@@ -61,27 +61,27 @@ nsprefixes = {
 	'dcmitype': 'http://purl.org/dc/dcmitype/',
 	'dcterms':  'http://purl.org/dc/terms/'}
 
-def unzip_tmp(path):
-	zfile = zipfile.ZipFile(path)
+def unzip_tmp(file, tmp_folder):
+	zfile = zipfile.ZipFile(file)
 	for name in zfile.namelist():
 		(dirname, filename) = os.path.split(name)
 		if filename == '':
 			# directory
-			if not os.path.exists('./tmp/' + dirname):
-				os.mkdir('./tmp/' + dirname)
+			if not os.path.exists(tmp_folder + '/' + dirname):
+				os.mkdir(tmp_folder + '/' + dirname)
 		else:
 			# file
-			fd = open('./tmp/' + name, 'wb')
+			fd = open(tmp_folder + '/' + name, 'wb')
 			fd.write(zfile.read(name))
 			fd.close()
 	zfile.close()
 
-def opendocx(file):
+def opendocx(file, tmp_folder):
 	'''Open a docx file, return a document XML tree'''
 	mydoc = zipfile.ZipFile(file)
 	xmlcontent = mydoc.read('word/document.xml')
 	document = etree.fromstring(xmlcontent)
-	unzip_tmp(file)
+	unzip_tmp(file, tmp_folder)
 	return document
 
 def newdocument():
@@ -907,7 +907,7 @@ def websettings():
 	web.append(makeelement('doNotSaveAsSingleFile'))
 	return web
 
-def relationshiplist(fromFile):
+def relationshiplist(fromFile, tmp_folder):
 	if not fromFile:
 		# Create relationshiplist from scratch
 		relationshiplist =\
@@ -921,7 +921,7 @@ def relationshiplist(fromFile):
 		# Get relationshiplist from template "fromFile"
 		tmp_relationshiplist = []
 		import xml.etree.ElementTree as ET
-		tree = ET.parse('./tmp/word/_rels/document.xml.rels')
+		tree = ET.parse(tmp_folder + '/word/_rels/document.xml.rels')
 		root = tree.getroot()
 		for child in root:
 			id = child.get('Id').split('Id')[1] # Add id for sorting purposes
@@ -949,7 +949,7 @@ def wordrelationships(relationshiplist):
 		count += 1
 	return relationships
 
-def savedocx(document, coreprops=None, appprops=None, contenttypes=None, websettings=None, wordrelationships=None, output=None, template=None):
+def savedocx(document, coreprops=None, appprops=None, contenttypes=None, websettings=None, wordrelationships=None, output=None, template=None, tmp_folder=None):
 	'''Save a modified document'''
 	assert os.path.isdir(template_dir)
 	docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
@@ -966,7 +966,7 @@ def savedocx(document, coreprops=None, appprops=None, contenttypes=None, websett
 				 websettings:       'word/webSettings.xml',
 				 wordrelationships: 'word/_rels/document.xml.rels'}
 	else:
-		os.chdir('./tmp/')
+		os.chdir(tmp_folder)
 		os.remove('word/document.xml')
 		os.remove('docProps/core.xml')
 		os.remove('word/_rels/document.xml.rels')
