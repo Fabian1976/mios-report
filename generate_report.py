@@ -267,11 +267,12 @@ def generateReport(hostgroupname, data):
 		body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	title = 'MIOS rapportage'
-	subject = 'Maandelijkse performance en resources rapportage'
+	subject = 'Performance en resources rapportage'
 	creator = 'Vermont 24/7'
 	keywords = ['MIOS', 'Rapportage', 'Vermont']
 	coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
 	wordrelationships = docx.wordrelationships(relationships)
+	config.report_name = config.report_name.split('.')[0] + '_' + hostgroupname.replace(' ', '_') + '_' + config.report_start_date + '_' + config.report_end_date
 	if not existing_report:
 		appprops = docx.appproperties()
 		contenttypes = docx.contenttypes()
