@@ -91,12 +91,37 @@ class Config:
 			self.report_template = ''
 		try:
 			self.report_start_date = self.config.get('report', 'start_date')
+			# validate date
+			import datetime
+			datetime.datetime.strptime(self.report_start_date, '%d-%m-%Y')
 		except:
 			self.report_start_date = ''
 		try:
 			self.report_period = self.config.get('report', 'period')
+			# Convert period to seconds
+			import re, calendar
+			match = re.match(r"([0-9]+)([a-z]+)", self.report_period, re.I)
+			if match:
+				period_items = match.groups()
+			day, month, year = map(int, self.report_start_date.split('-'))
+			seconds_in_day = 86400
+			if period_items[1] == 'd':
+				total_seconds = int(period_items[0]) * seconds_in_day
+			elif period_items[1] == 'w':
+				total_seconds = int(period_items[0]) * 7 * seconds_in_day
+			elif period_items[1] == 'm':
+				days_in_month = calendar.monthrange(year, month)[1]
+				total_seconds = int(period_items[0]) * days_in_month * seconds_in_day
+			elif period_items[1] == 'y':
+				if calendar.isleap(year):
+					total_seconds = int(period_items[0]) * 366 * seconds_in_day
+				else:
+					total_seconds = int(period_items[0]) * 365 * seconds_in_day
+			self.report_period = total_seconds
 		except:
-			self.report_period = '1m'
+			raise
+			# Defaults to 1 week
+			self.report_period = 604800
 		try:
 			self.report_graph_width = self.config.get('report', 'graph_width')
 		except:
