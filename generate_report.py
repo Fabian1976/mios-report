@@ -213,7 +213,6 @@ def generateGraphs(hostgroupid):
 		print "Error while loading psycopg2 module!"
 		raise
 	try:
-#		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % ("10.10.3.8", "9999", "tverdbp01", "mios", "K1HYC0haFBk9jvu71Bpf"))
 		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (config.postgres_host, config.postgres_port, config.postgres_dbname, config.postgres_user, config.postgres_password))
 	except Exception:
 		print "Cannot connect to database"
@@ -233,8 +232,6 @@ def generateReport(hostgroupname, data):
 		existing_report = ''
 	else:
 		existing_report = config.mreport_home + '/templates/' + config.report_template
-#	existing_report = 'VermontTemplate.docx' # Leave empty for new file
-#	existing_report = ''
 	if not existing_report:
 		document = docx.newdocument()
 	else:
@@ -306,7 +303,6 @@ def main():
 	generateReport(hostgroupname, result)
 
 if  __name__ == "__main__":
-#	options, args = get_options()
 	global config
 	try:
 		mreport_home = os.environ['MREPORT_HOME']
