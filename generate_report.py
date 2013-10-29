@@ -170,7 +170,6 @@ def selectHostgroup():
 def checkHostgroup(hostgroupid):
 	try:
 		import psycopg2
-#		import psycopg2.extras # Necessary to generate query results as a dictionary
 		pg = psycopg2
 	except ImportError:
 		print "Module psycopg2 is not installed, please install it!"
@@ -229,7 +228,7 @@ def getGraph(graphid):
 	f.write(buffer.getvalue())
 	f.close()
 
-def generateGraphs(hostgroupid):
+def getGraphsList(hostgroupid):
 	try:
 		import psycopg2
 		import psycopg2.extras # Necessary to generate query results as a dictionary
@@ -334,8 +333,8 @@ def main():
 	else:
 		os.system('clear')
 		# get the hosts and their graphs from selected host group
-		result = generateGraphs(hostgroupid)
-		generateReport(hostgroupname, result)
+		graphsList = getGraphsList(hostgroupid)
+		generateReport(hostgroupname, graphsList)
 
 if  __name__ == "__main__":
 	global config
