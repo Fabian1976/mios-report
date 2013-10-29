@@ -276,6 +276,7 @@ def generateReport(hostgroupname, data):
 		body.append(docx.heading(host, 3))
 		for record in data:
 			if record['hostname'] == host and record['graphtype'] == 'p':
+				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
 				getGraph(record['graphid'])
 				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
 				body.append(picpara)
@@ -287,12 +288,15 @@ def generateReport(hostgroupname, data):
 		body.append(docx.heading(host, 3))
 		for record in data:
 			if record['hostname'] == host and record['graphtype'] == 'r':
+				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
 				getGraph(record['graphid'])
 				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
 				body.append(picpara)
 				body.append(docx.caption(record['graphname']))
 		body.append(docx.pagebreak(type='page', orient='portrait'))
+	print "\nDone generating graphs..."
 
+	print "\nStart generating report"
 	title = 'MIOS rapportage'
 	subject = 'Performance en resources rapportage'
 	creator = 'Vermont 24/7'
@@ -310,6 +314,9 @@ def generateReport(hostgroupname, data):
 		for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 			shutil.copy2(file, mreport_home + '/tmp/word/media/')
 		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output=config.report_name, template=existing_report, tmp_folder=mreport_home + '/tmp')
+	print "Done generating report..."
+
+	print "\nStart cleanup"
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
 	for file in glob.glob(mreport_home + '/bin/*.png'):
@@ -321,6 +328,7 @@ def generateReport(hostgroupname, data):
 			os.remove(os.path.join(root, name))
 		for name in dirs:
 			os.rmdir(os.path.join(root, name))
+	print "Done cleaning up\n"
 
 def main():
 	# get hostgroup
