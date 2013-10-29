@@ -167,6 +167,34 @@ def selectHostgroup():
 			pass
 	return (hostgroupid, hostgroupname)
 
+def checkHostgroup(hostgroupid):
+	try:
+		import psycopg2
+#		import psycopg2.extras # Necessary to generate query results as a dictionary
+		pg = psycopg2
+	except ImportError:
+		print "Module psycopg2 is not installed, please install it!"
+		raise
+	except:
+		print "Error while loading psycopg2 module!"
+		raise
+	try:
+		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (config.postgres_host, config.postgres_port, config.postgres_dbname, config.postgres_user, config.postgres_password))
+	except Exception:
+		print "Cannot connect to database"
+		raise
+
+	pg_cursor = pg_connection.cursor()
+	pg_cursor.execute("select count(*) from mios_report where hostgroupid = %s", (hostgroupid,))
+	num_graphs_host = pg_cursor.fetchone()
+	pg_cursor.close()
+	pg_connection.close()
+	if int(num_graphs_host[0]) > 0:
+		result = 1
+	else:
+		result = 0
+	return result
+
 def getGraph(graphid):
 	import pycurl
 	import StringIO
@@ -298,10 +326,16 @@ def generateReport(hostgroupname, data):
 def main():
 	# get hostgroup
 	hostgroupid, hostgroupname = selectHostgroup()
-	os.system('clear')
-	# get the hosts and their graphs from selected host group
-	result = generateGraphs(hostgroupid)
-	generateReport(hostgroupname, result)
+	if not checkHostgroup(hostgroupid):
+		os.system('clear')
+		print "There are no graphs registered in the database for hostgroup '%s'" % hostgroupname
+		print "Please run the db_filler script first to select the graphs you want in the report for this hostgroup"
+		sys.exit(1)
+	else:
+		os.system('clear')
+		# get the hosts and their graphs from selected host group
+		result = generateGraphs(hostgroupid)
+		generateReport(hostgroupname, result)
 
 if  __name__ == "__main__":
 	global config
