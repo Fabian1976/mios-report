@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.1"
+__version__   = "2.2"
 
 import ConfigParser
 import sys, os
@@ -161,7 +161,7 @@ def selectHostgroup():
 		os.system('clear')
 		print "Hostgroups:"
 		for hostgroup in hostgroups:
-			print '\t%2d: %s' % (hostgroup, hostgroups[hostgroup][0])
+			print '\t%2d: %s (hostgroupid: %s)' % (hostgroup, hostgroups[hostgroup][0], hostgroups[hostgroup][1])
 		try:
 			hostgroupnr = int(raw_input('Select hostgroup: '))
 			try:
@@ -180,6 +180,14 @@ def selectHostgroup():
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
 	return (hostgroupid, hostgroupname)
+
+def getHostgroupName(hostgroupid):
+        teller = 0
+	try:
+		hostgroupname = zapi.hostgroup.get({ "output": "extend", "filter": { "groupid": hostgroupid} })[0]['name']
+	except:
+		hostgroupname = 0
+        return hostgroupname
 
 def checkHostgroup(hostgroupid):
 	try:
@@ -390,7 +398,16 @@ def generateReport(hostgroupname, data):
 
 def main():
 	# get hostgroup
-	hostgroupid, hostgroupname = selectHostgroup()
+	if len(sys.argv) > 2:
+		print "To many arguments passed"
+		print "Usage: %s (optional hostgroupid. If no id is given, a selection menu will apear)" % sys.argv[0]
+	elif len(sys.argv) == 2:
+		hostgroupid, hostgroupname = sys.argv[1], getHostgroupName(sys.argv[1])
+		if not hostgroupname:
+			print "No hostgroup found for id: %s" % hostgroupid
+			sys.exit(1)
+	else:
+		hostgroupid, hostgroupname = selectHostgroup()
 	if not checkHostgroup(hostgroupid):
 		os.system('clear')
 		print "There are no graphs registered in the database for hostgroup '%s'" % hostgroupname
