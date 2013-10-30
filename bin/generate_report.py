@@ -136,6 +136,20 @@ class Config:
 			self.report_end_date = datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y')
 			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
 
+		try:
+			self.email_sender = self.config.get('email', 'sender')
+		except:
+			from socket import gethostname
+			self.email_sender = 'mios@' + gethostname()
+		try:
+			self.email_receiver = self.config.get('email','receiver')
+		except:
+			self.email_receiver = ''
+		try:
+			self.email_server = self.config.get('email', 'server')
+		except:
+			self.email_server = 'localhost'
+
 def selectHostgroup():
 	teller = 0
 	hostgroups = {}
@@ -252,6 +266,45 @@ def getGraphsList(hostgroupid):
 	pg_connection.close()
 	return result
 
+def sendReport(filename, hostgroupname):
+	import smtplib
+	from email.MIMEMultipart import MIMEMultipart
+	from email.mime.text import MIMEText
+	from email.MIMEBase import MIMEBase
+	from email import Encoders
+
+	sender = config.email_sender
+	receiver = config.email_receiver
+
+	msg = MIMEMultipart()
+	text = 'Bij deze de rapportage van %s van de periode %s t/m %s' % (hostgroupname, config.report_start_date, config.report_end_date)
+#	html = """\
+#		<html>
+#			<head></head>
+#				<body>
+#					%s
+#				</body>
+#		</html>
+#	""" % text
+	body = MIMEMultipart('alternative')
+	part1 = MIMEText(text, 'plain')
+#	part2 = MIMEText(html, 'html')
+	body.attach(part1)
+#	body.attach(part2)
+	msg.attach(body)
+
+	attachFile = MIMEBase('application', 'msword')
+	attachFile.set_payload(file(filename).read())
+	Encoders.encode_base64(attachFile)
+	attachFile.add_header('Content-Disposition', 'attachment', filename=filename)
+	msg.attach(attachFile)
+	msg['Subject'] = 'Rapportage %s, %s t/m %s' % (hostgroupname, config.report_start_date, config.report_end_date)
+	msg['From'] = sender
+	msg['To'] = receiver
+	mailer = smtplib.SMTP(config.email_server)
+	mailer.sendmail(sender, receiver, msg.as_string())
+	mailer.quit()
+
 def generateReport(hostgroupname, data):
 	import docx
 
@@ -315,6 +368,11 @@ def generateReport(hostgroupname, data):
 			shutil.copy2(file, mreport_home + '/tmp/word/media/')
 		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output=config.report_name, template=existing_report, tmp_folder=mreport_home + '/tmp')
 	print "Done generating report..."
+	#send it through email
+	if config.email_receiver != '':
+		sendReport(config.report_name, hostgroupname)
+	else:
+		print "No email receiver specified. Report will not be sent by email."
 
 	print "\nStart cleanup"
 	import glob # Unix style pathname pattern expansion
