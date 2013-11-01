@@ -206,7 +206,7 @@ def checkHostgroup(hostgroupid):
 		raise
 
 	pg_cursor = pg_connection.cursor()
-	pg_cursor.execute("select count(*) from mios_report where hostgroupid = %s", (hostgroupid,))
+	pg_cursor.execute("select count(*) from mios_report_graphs where hostgroupid = %s", (hostgroupid,))
 	num_graphs_host = pg_cursor.fetchone()
 	pg_cursor.close()
 	pg_connection.close()
@@ -268,7 +268,7 @@ def getGraphsList(hostgroupid):
 		raise
 
 	pg_cursor = pg_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-	pg_cursor.execute("select * from mios_report where hostgroupid = %s order by hostname, graphname", (hostgroupid,))
+	pg_cursor.execute("select * from mios_report_graphs where hostgroupid = %s order by hostname, graphname", (hostgroupid,))
 	result = pg_cursor.fetchall()
 	pg_cursor.close()
 	pg_connection.close()
