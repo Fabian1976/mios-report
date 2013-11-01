@@ -136,7 +136,7 @@ def selectHostgroup():
 def getHosts(hostgroupid):
 	hosts = {}
 	for host in zapi.host.get({ "output": "extend", "groupids" : hostgroupid }):
-		hosts[host['name']] = (host['hostid'], getGraphs(host['hostid']), getCheckItems(host['hostid']))
+		hosts[host['name']] = (host['hostid'], getGraphs(host['hostid']))
 	return hosts
 
 def getGraphs(hostid):
@@ -145,13 +145,6 @@ def getGraphs(hostid):
 	for graph in zapi.graph.get({ "output": "extend", "hostids":hostid }):
 		graphs[graph['name']] = (graph['graphid'], selected)
 	return graphs
-
-def getCheckItems(hostid):
-	items = {}
-	selected = '0'
-	for item in zapi.item.get({ "output": "extend",  "hostids":hostid, "search": { "name": "Check -*"}, "searchWildcardsEnabled":1 }):
-		items[item['name']] = (item['itemid'], selected)
-	return items
 
 def runmenu(menu, parent):
 
@@ -389,6 +382,4 @@ if  __name__ == "__main__":
 #		print "Zabbix API Version: %s" % zapi.api_version()
 	except ZabbixAPIException, e:
 		sys.stderr.write(str(e) + '\n')
-#	print getCheckItems(10096)
-#	sys.exit(1)
 	main()
