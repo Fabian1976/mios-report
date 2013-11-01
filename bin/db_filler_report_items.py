@@ -136,15 +136,15 @@ def selectHostgroup():
 def getHosts(hostgroupid):
 	hosts = {}
 	for host in zapi.host.get({ "output": "extend", "groupids" : hostgroupid }):
-		hosts[host['name']] = (host['hostid'], getGraphs(host['hostid']))
+		hosts[host['name']] = (host['hostid'], getCheckItems(host['hostid']))
 	return hosts
 
-def getGraphs(hostid):
-	graphs = {}
+def getCheckItems(hostid):
+	items = {}
 	selected = '0'
-	for graph in zapi.graph.get({ "output": "extend", "hostids":hostid }):
-		graphs[graph['name']] = (graph['graphid'], selected)
-	return graphs
+	for item in zapi.item.get({ "output": "extend",  "hostids":hostid, "search": { "name": "Check -*"}, "searchWildcardsEnabled":1 }):
+		items[item['name']] = (item['itemid'], selected)
+	return items
 
 def runmenu(menu, parent):
 
@@ -153,7 +153,7 @@ def runmenu(menu, parent):
 
 	# work out what text to display as the last menu option
 	if parent is None:
-		lastoption = "Done selecting graphs!"
+		lastoption = "Done selecting items!"
 	else:
 		lastoption = "Back to menu '%s'" % parent['title']
 
@@ -165,7 +165,7 @@ def runmenu(menu, parent):
 
 	# Loop until return key is pressed
 	while x !=ord('\n'):
-		if pos != oldpos or x == 112 or x == 114:
+		if pos != oldpos or x == 32:
 			oldpos = pos
 			screen.clear() #clears previous screen on key press and updates display based on pos
 			screen.border(0)
@@ -177,13 +177,11 @@ def runmenu(menu, parent):
 				textstyle = n
 				if pos==index:
 					textstyle = h
-				if 'graphid' in menu['options'][index]:
+				if 'itemid' in menu['options'][index]:
 					if menu['options'][index]['selected'] == '0':
 						check = '[ ]'
-					elif menu['options'][index]['selected'] == 'p':
-						check = '[p]'
-					elif menu['options'][index]['selected'] == 'r':
-						check = '[r]'
+					elif menu['options'][index]['selected'] == '1':
+						check = '[*]'
 					screen.addstr(5+index,4, "%-50s %s" % (menu['options'][index]['title'], check), textstyle)
 				else:
 					screen.addstr(5+index,4, "%s" % menu['options'][index]['title'], textstyle)
@@ -213,19 +211,12 @@ def runmenu(menu, parent):
 				pos += -1
 			else:
 				pos = optioncount
-		elif x == 112: # p(erformance)
-			if 'graphid' in menu['options'][pos]:
-				if menu['options'][pos]['selected'] == 'p':
-					menu['options'][pos]['selected'] = '0'
+		elif x == 32: # space
+			if 'itemid' in menu['options'][pos]:
+				if menu['options'][pos]['selected'] == '0':
+					menu['options'][pos]['selected'] = '1'
 				else:
-					menu['options'][pos]['selected'] = 'p'
-			screen.refresh()
-		elif x == 114: # r(esources)
-			if 'graphid' in menu['options'][pos]:
-				if menu['options'][pos]['selected'] == 'r':
 					menu['options'][pos]['selected'] = '0'
-				else:
-					menu['options'][pos]['selected'] = 'r'
 			screen.refresh()
 		elif x != ord('\n'):
 			curses.flash()
@@ -258,44 +249,40 @@ def doMenu(menu_data):
 	processmenu(menu_data)
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def checkGraphs(hostgroupid, hostgroupname, menu_data):
-	any_graphs = 0
+def checkItems(hostgroupid, hostgroupname, menu_data):
+	any_items = 0
 	num_hosts = len(menu_data['options'])
 	print "Hostgroup '%s':" % hostgroupname
 	for host in range(num_hosts):
 		print '\t%s' % menu_data['options'][host]['title']
-		num_graphs = len(menu_data['options'][host]['options'])
-		selected_graphs_host = 0
-		for graph in range(num_graphs):
-			if menu_data['options'][host]['options'][graph]['selected'] != '0':
-				selected_graphs_host += 1
-		if selected_graphs_host > 0:
-			any_graphs = 1
-			for graph in range(num_graphs):
-				if menu_data['options'][host]['options'][graph]['selected'] == 'p':
-					graph_type = "Performance graph"
-				elif menu_data['options'][host]['options'][graph]['selected'] == 'r':
-					graph_type = "Resource graph"
-				if menu_data['options'][host]['options'][graph]['selected'] != '0':
-					print "\t\t%-18s: %s" % (graph_type, menu_data['options'][host]['options'][graph]['title'])
+		num_items = len(menu_data['options'][host]['options'])
+		selected_items_host = 0
+		for item in range(num_items):
+			if menu_data['options'][host]['options'][item]['selected'] != '0':
+				selected_items_host += 1
+		if selected_items_host > 0:
+			any_items = 1
+			for item in range(num_items):
+				if menu_data['options'][host]['options'][item]['selected'] != '0':
+					print "\t\t%s" % (menu_data['options'][host]['options'][item]['title'])
 		else:
-			print "\t\tNo graphs selected for this host"
-	if any_graphs:
+			print "\t\tNo items selected for this host"
+	if any_items:
 		antwoord = ""
 		while antwoord not in ["yes", "Yes", "no", "No"]:
 			try:
-				antwoord = str(raw_input('\nDo you want to store these graphs in the database (BEWARE: the old setting for this hostgroup will be overwritten by these new ones)? (Yes/No): '))
+				antwoord = str(raw_input('\nDo you want to store these items in the database (BEWARE: the old setting for this hostgroup will be overwritten by these new ones)? (Yes/No): '))
 			except KeyboardInterrupt: # Catch CTRL-C
 				pass
 		if antwoord in ["yes", "Yes"]:
 			print "OK"
-			storeGraphs(hostgroupid, hostgroupname, menu_data)
+			storeItems(hostgroupid, hostgroupname, menu_data)
 		else:
 			print "Then not"
 	else:
-		print "\nNo graphs selected. Nothing to do."
+		print "\nNo items selected. Nothing to do."
 
-def storeGraphs(hostgroupid, hostgroupname, menu_data):
+def storeItems(hostgroupid, hostgroupname, menu_data):
 	try:
 		import psycopg2
 		pg = psycopg2
@@ -313,14 +300,14 @@ def storeGraphs(hostgroupid, hostgroupname, menu_data):
 	pg_cursor = pg_connection.cursor()
 
 	num_hosts = len(menu_data['options'])
-	pg_cursor.execute("delete from mios_report_graphs where hostgroupid = %s", (hostgroupid,))
+	pg_cursor.execute("delete from mios_report_uptime where hostgroupid = %s", (hostgroupid,))
 	# do not commit! stay in same transaction so rollback will work if an error occurs
 	for host in range(num_hosts):
-		num_graphs = len(menu_data['options'][host]['options'])
-		for graph in range(num_graphs):
-			if menu_data['options'][host]['options'][graph]['selected'] != '0':
+		num_items = len(menu_data['options'][host]['options'])
+		for item in range(num_items):
+			if menu_data['options'][host]['options'][item]['selected'] != '0':
 				try:
-					pg_cursor.execute("insert into mios_report_graphs (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, %s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
+					pg_cursor.execute("insert into mios_report_uptime (hostgroupid, hostgroupname, hostid, hostname, itemid, itemname) values (%s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][item]['itemid'], menu_data['options'][host]['options'][item]['title']))
 				except:
 					print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
 					pg_connection.rollback()
@@ -335,8 +322,8 @@ def main():
 	# get host groups
 	hostgroupid, hostgroupname = selectHostgroup()
 	os.system('clear')
-	print "The hosts and related graphs from group '%s' are being fetched..." % hostgroupname
-	# get the hosts and their graphs from selected host group
+	print "The hosts and related items from group '%s' are being fetched..." % hostgroupname
+	# get the hosts and their items from selected host group
 	hosts = getHosts(hostgroupid)
 
 	# Build the menus
@@ -347,23 +334,23 @@ def main():
 		menu_hosts['title'] = host
 		menu_hosts['hostid'] = hosts[host][0]
 		menu_hosts['type'] = 'MENU'
-		menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph and "r" for a resource graph'
-		graphs = hosts[host][1]
+		menu_hosts['subtitle'] = 'Select the items for the uptime graphs. Use <SPACE> to mark an item'
+		items = hosts[host][1]
 		host_options = []
-		for graph in sorted(graphs.iterkeys()):
-			menu_graphs = {}
-			menu_graphs['title'] = str(graph)
-			menu_graphs['type'] = 'GRAPHID'
-			menu_graphs['graphid'] = graphs[graph][0]
-			menu_graphs['selected'] = graphs[graph][1]
-			host_options.append(menu_graphs)
+		for item in sorted(items.iterkeys()):
+			menu_items = {}
+			menu_items['title'] = str(item)
+			menu_items['type'] = 'ITEMID'
+			menu_items['itemid'] = items[item][0]
+			menu_items['selected'] = items[item][1]
+			host_options.append(menu_items)
 		menu_hosts['options'] = host_options
 		menu_options.append(menu_hosts)
 	menu['options'] = menu_options
 
 	doMenu(menu)
 	os.system('clear')
-	checkGraphs(hostgroupid, hostgroupname, menu)
+	checkItems(hostgroupid, hostgroupname, menu)
 
 if  __name__ == "__main__":
 	global config
