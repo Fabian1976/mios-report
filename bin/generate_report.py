@@ -16,8 +16,11 @@ except:
 sys.path.append(mreport_home + '/lib')
 
 from zabbix_api import ZabbixAPI, ZabbixAPIException
+from GChartWrapper import *
 
 import curses, os #curses is the interface for capturing key presses on the menu, os launches the files
+
+postgres = None
 
 class Config:
 	def __init__(self, conf_file):
@@ -26,10 +29,7 @@ class Config:
 		self.zabbix_user = ''
 		self.zabbix_password = ''
 		self.postgres_dbname = ''
-		self.postgres_host = ''
-		self.postgres_port = ''
-		self.postgres_user = ''
-		self.postgres_password = ''
+		self.postgres_dbs = {}
 		self.report_name = ''
 		self.report_template = ''
 		self.report_start_date = ''
@@ -66,21 +66,22 @@ class Config:
 		except:
 			self.postgres_dbname = 'postgres'
 		try:
-			self.postgres_host = self.config.get('miosdb', 'host')
+			postgres_host = self.config.get('miosdb', 'host')
 		except:
-			self.postgres_host = 'localhost'
+			postgres_host = 'localhost'
 		try:
-			self.postgres_port = self.config.get('miosdb', 'port')
+			postgres_port = self.config.get('miosdb', 'port')
 		except:
-			self.portgres_post = '5432'
+			postgres_port = '5432'
 		try:
-			self.postgres_user = self.config.get('miosdb', 'user')
+			postgres_user = self.config.get('miosdb', 'user')
 		except:
-			self.postgres_user = 'postgres'
+			postgres_user = 'postgres'
 		try:
-			self.postgres_password = self.config.get('miosdb', 'password')
+			postgres_password = self.config.get('miosdb', 'password')
 		except:
-			self.postgres_password = 'postgres'
+			postgres_password = 'postgres'
+		self.postgres_dbs[self.postgres_dbname] = (postgres_host, postgres_port, postgres_user, postgres_password)
 		try:
 			self.report_name = self.config.get('report', 'name')
 		except:
@@ -150,6 +151,103 @@ class Config:
 		except:
 			self.email_server = 'localhost'
 
+class Postgres(object):
+
+	def __init__(self, instances):
+
+		self.postgres_support = 0
+		self.connections      = []
+		self.cursor           = []
+		self.version          = []
+		self.host             = []
+		self.port             = []
+		self.user             = []
+		self.password         = []
+		self.dbs              = []
+		self.instances        = instances
+		self.last_connect     = []
+#		self.logger           = logging.getLogger(type(self).__name__)
+
+		try:
+			import psycopg2
+			import psycopg2.extras
+			self.psycopg2 = psycopg2
+			self.psycopg2_extras = psycopg2.extras
+			self.postgres_support = 1
+			print("Successfully loaded psycopg2 module")
+		except ImportError:
+			print("Module psycopg2 is not installed, please install it!")
+			raise
+		except:
+			print("Error while loading psycopg2 module!")
+			raise
+
+		if self.postgres_support == 0:
+			return None
+
+		for instance in instances:
+			host, port, user, password = instances[instance]
+			self.host.append(host)
+			self.port.append(port)
+			self.user.append(user)
+			self.password.append(password)
+			self.dbs.append(instance)
+			self.connections.append(None)
+			self.cursor.append(None)
+			self.version.append('')
+			indx = self.dbs.index(instance)
+			self.last_connect.append(0)
+			self.connect(indx)
+
+	def connect(self, indx):
+
+		while self.connections[indx] == None:
+			try:
+				self.connections[indx] = self.psycopg2.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (self.host[indx], self.port[indx], self.dbs[indx], self.user[indx], self.password[indx]))
+				print("Connection succesful")
+				time.sleep(2)
+			except Exception, e:
+				print("Unable to connect to Postgres")
+				print("PG: Additional information: %s" % e)
+				print("Trying to reconnect in 10 seconds")
+				time.sleep(10)
+		self.cursor[indx]      = self.connections[indx].cursor(cursor_factory=self.psycopg2_extras.DictCursor)
+		self.cursor[indx].execute('select version()')
+		self.version[indx]     = self.cursor[indx].fetchone()
+		self.last_connect      = time.time()
+		print("Connect to Postgres version %s DB: %s" % (self.version[indx], self.dbs[indx]))
+
+	def execute(self, db, query):
+
+		if self.postgres_support == 0:
+			print("Postgres not supported")
+			return None
+
+		if not db in self.dbs:
+			return -1
+		try:
+			indx = self.dbs.index(db)
+			try:
+				self.cursor[indx].execute(query)
+			except Exception, e:
+				print("PG: Failed to execute query: %s" % query)
+				print("PG: Additional info: %s" % e)
+				return -1
+
+			try:
+				value = self.cursor[indx].fetchall()
+			except Exception, e:
+				print("PG: Failed to fetch resultset")
+				print("PG: Additional info: %s" % e)
+				return -1
+
+#			print("indx: %d db: %s action: %s value: %s" % (indx, db, query, str(value)))
+			return value
+		except:
+			print("Error in Postgres connection DB: %s" % db)
+			raise
+			return -2
+
 def selectHostgroup():
 	teller = 0
 	hostgroups = {}
@@ -190,27 +288,11 @@ def getHostgroupName(hostgroupid):
         return hostgroupname
 
 def checkHostgroup(hostgroupid):
-	try:
-		import psycopg2
-		pg = psycopg2
-	except ImportError:
-		print "Module psycopg2 is not installed, please install it!"
-		raise
-	except:
-		print "Error while loading psycopg2 module!"
-		raise
-	try:
-		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (config.postgres_host, config.postgres_port, config.postgres_dbname, config.postgres_user, config.postgres_password))
-	except Exception:
-		print "Cannot connect to database"
-		raise
-
-	pg_cursor = pg_connection.cursor()
-	pg_cursor.execute("select count(*) from mios_report_graphs where hostgroupid = %s", (hostgroupid,))
-	num_graphs_host = pg_cursor.fetchone()
-	pg_cursor.close()
-	pg_connection.close()
-	if int(num_graphs_host[0]) > 0:
+	num_graphs_host = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_graphs where hostgroupid = %s" % hostgroupid)
+	num_items_host = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_uptime where hostgroupid = %s" % hostgroupid)
+	if int(num_graphs_host[0][0]) > 0:
+		result = 1
+	elif int(num_items_host[0][0]) > 0:
 		result = 1
 	else:
 		result = 0
@@ -250,29 +332,63 @@ def getGraph(graphid):
 	f.write(buffer.getvalue())
 	f.close()
 
-def getGraphsList(hostgroupid):
-	try:
-		import psycopg2
-		import psycopg2.extras # Necessary to generate query results as a dictionary
-		pg = psycopg2
-	except ImportError:
-		print "Module psycopg2 is not installed, please install it!"
-		raise
-	except:
-		print "Error while loading psycopg2 module!"
-		raise
-	try:
-		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (config.postgres_host, config.postgres_port, config.postgres_dbname, config.postgres_user, config.postgres_password))
-	except Exception:
-		print "Cannot connect to database"
-		raise
+def getUptimeGraph(itemid):
+	day, month, year = map(int, config.report_start_date.split('-'))
 
-	pg_cursor = pg_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-	pg_cursor.execute("select * from mios_report_graphs where hostgroupid = %s order by hostname, graphname", (hostgroupid,))
-	result = pg_cursor.fetchall()
-	pg_cursor.close()
-	pg_connection.close()
-	return result
+	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	end_epoch = start_epoch + config.report_period
+	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from zabbix.history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
+#	print polling_total
+	rows = postgres.execute(config.postgres_dbname, "select clock from zabbix.history_uint where itemid = %s and clock > %s and clock < %s and value = 0" % (itemid, start_epoch, end_epoch))
+#	print rows
+	polling_down_rows = []
+	for row in rows:
+		polling_down_rows.append(row[0])
+#	print polling_down_rows
+	item_maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from zabbix.timeperiods\
+	 inner join zabbix.maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
+	 inner join zabbix.maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
+	 inner join zabbix.maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
+	 inner join zabbix.groups on maintenances_groups.groupid = groups.groupid\
+	 inner join zabbix.hosts_groups on hosts_groups.groupid = groups.groupid\
+	 inner join zabbix.hosts on hosts_groups.hostid = hosts.hostid\
+	 inner join zabbix.items on items.hostid = hosts.hostid\
+	 where items.itemid = %s and timeperiods.start_date between %s and %s" % (itemid, start_epoch, end_epoch))
+	polling_down_maintenance = []
+	polling_down = list(polling_down_rows) # Make copy of list so that it can be edited without affecting original list (mutable), same as polling_down_rows[:]
+	for clock in polling_down_rows:
+		for mclock in item_maintenance_rows:
+			if mclock[0] <= clock <= mclock[1]:
+				# Is down clock between maintenance period?
+				# Then add to down_maintenance and remove from down
+				polling_down_maintenance.append(clock)
+				polling_down.remove(clock)
+
+	print "Polling items down and in maintenance    : %s" % len(polling_down_maintenance)
+	print "Polling items down and NOT in maintenance: %s" % len(polling_down)
+	print "Polling items UP                         : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down))
+	print "Start epoch      : ", start_epoch
+	print "Eind epoch       : ", end_epoch
+	print "Period in seconds: ", config.report_period
+
+	percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
+	percentage_down = (float(len(polling_down)) / float(polling_total)) * 100
+	percentage_up = 100 - (percentage_down + percentage_down_maintenance)
+	print "Percentage down and in maintenanve during period    : ", percentage_down_maintenance
+	print "Percentage down and NOT in maintenance during period: ", percentage_down
+	print "Percentage up during period                         : ", percentage_up
+
+	uptime_graph = Pie3D([percentage_up, percentage_down, percentage_down_maintenance])
+	uptime_graph.size(400,100)
+	uptime_graph.label('Up (%.2f%%)' % percentage_up, 'Down (%.2f%%)' % percentage_down, 'Maintenance (%.2f%%)' % percentage_down_maintenance)
+	uptime_graph.color('00dd00','dd0000', 'ff8800')
+	uptime_graph.save(str(itemid) + '.png')
+
+def getGraphsList(hostgroupid):
+	return postgres.execute(config.postgres_dbname, "select * from mios_report_graphs where hostgroupid = %s order by hostname, graphname" % hostgroupid)
+
+def getItemsList(hostgroupid):
+	return postgres.execute(config.postgres_dbname, "select * from mios_report_uptime where hostgroupid = %s order by hostname, itemname" % hostgroupid)
 
 def sendReport(filename, hostgroupname):
 	import smtplib
@@ -313,7 +429,7 @@ def sendReport(filename, hostgroupname):
 	mailer.sendmail(sender, receiver, msg.as_string())
 	mailer.quit()
 
-def generateReport(hostgroupname, data):
+def generateReport(hostgroupname, graphData, itemData):
 	import docx
 
 	if config.report_template == '':
@@ -328,14 +444,35 @@ def generateReport(hostgroupname, data):
 	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 	body.append(docx.heading("MIOS rapportage " + hostgroupname, 1))
 	hosts = []
-	for record in data:
+	for record in graphData: # Create list of hosts for iteration
 		if record['hostname'] not in hosts:
 			hosts.append(record['hostname'])
+	uptime_items = []
+	for record in itemData: # Create list of uptime items for iteration
+		if record['itemname'].split('Check - ')[1] not in uptime_items:
+			uptime_items.append(record['itemname'].split('Check - ')[1])
+#			print record['itemname'].split('Check - ')[1]
+
+#	print uptime_items
+#	sys.exit(1)
+
+	body.append(docx.heading("Beschikbaarheid business services", 2))
+	for item in uptime_items:
+		body.append(docx.heading(item, 3))
+		for record in itemData:
+			if record['itemname'].split('Check - ')[1] == item:
+				print "Generating uptime graph '%s' from item '%s'" % (record['itemname'].split('Check - ')[1], item)
+				getUptimeGraph(record['itemid'])
+				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200)
+				body.append(picpara)
+#				body.append(docx.caption(record['itemname'].split('Check - ')[1]))
+	body.append(docx.pagebreak(type='page', orient='portrait'))
+
 	# Performance grafieken
 	body.append(docx.heading("Performance grafieken", 2))
 	for host in hosts:
 		body.append(docx.heading(host, 3))
-		for record in data:
+		for record in graphData:
 			if record['hostname'] == host and record['graphtype'] == 'p':
 				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
 				getGraph(record['graphid'])
@@ -347,7 +484,7 @@ def generateReport(hostgroupname, data):
 	body.append(docx.heading("Resource grafieken", 2))
 	for host in hosts:
 		body.append(docx.heading(host, 3))
-		for record in data:
+		for record in graphData:
 			if record['hostname'] == host and record['graphtype'] == 'r':
 				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
 				getGraph(record['graphid'])
@@ -397,6 +534,13 @@ def generateReport(hostgroupname, data):
 	print "Done cleaning up\n"
 
 def main():
+	global postgres
+
+	postgres = Postgres(config.postgres_dbs)
+#	print postgres.dbs
+#	result = postgres.execute(config.postgres_dbname, "select * from mios_report_uptime where hostgroupid = %s order by hostname, itemname" % 8)
+#	print result
+#	sys.exit(1)
 	# get hostgroup
 	if len(sys.argv) > 2:
 		print "To many arguments passed"
@@ -417,7 +561,9 @@ def main():
 		os.system('clear')
 		# get the hosts and their graphs from selected host group
 		graphsList = getGraphsList(hostgroupid)
-		generateReport(hostgroupname, graphsList)
+		itemsList = getItemsList(hostgroupid)
+#		itemsList = {}
+		generateReport(hostgroupname, graphsList, itemsList)
 
 if  __name__ == "__main__":
 	global config
