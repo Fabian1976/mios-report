@@ -142,7 +142,8 @@ def getHosts(hostgroupid):
 def getCheckItems(hostid):
 	items = {}
 	selected = '0'
-	for item in zapi.item.get({ "output": "extend",  "hostids":hostid, "search": { "name": "Check -*"}, "searchWildcardsEnabled":1 }):
+#	for item in zapi.item.get({ "output": "extend",  "hostids":hostid, "search": { "name": "Check -*"}, "searchWildcardsEnabled":1 }):
+	for item in zapi.item.get({ "output": "extend",  "hostids":hostid, "filter": { "valuemapid": "1"} }): # Valuemapid 1 = "Service state" (0 = down, 1 = up)
 		items[item['name']] = (item['itemid'], selected)
 	return items
 
