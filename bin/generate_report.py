@@ -338,13 +338,10 @@ def getUptimeGraph(itemid):
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
 	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from zabbix.history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
-#	print polling_total
 	rows = postgres.execute(config.postgres_dbname, "select clock from zabbix.history_uint where itemid = %s and clock > %s and clock < %s and value = 0" % (itemid, start_epoch, end_epoch))
-#	print rows
 	polling_down_rows = []
 	for row in rows:
 		polling_down_rows.append(row[0])
-#	print polling_down_rows
 	item_maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from zabbix.timeperiods\
 	 inner join zabbix.maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
 	 inner join zabbix.maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
@@ -451,10 +448,6 @@ def generateReport(hostgroupname, graphData, itemData):
 	for record in itemData: # Create list of uptime items for iteration
 		if record['itemname'].split('Check - ')[1] not in uptime_items:
 			uptime_items.append(record['itemname'].split('Check - ')[1])
-#			print record['itemname'].split('Check - ')[1]
-
-#	print uptime_items
-#	sys.exit(1)
 
 	body.append(docx.heading("Beschikbaarheid business services", 2))
 	for item in uptime_items:
@@ -537,10 +530,6 @@ def main():
 	global postgres
 
 	postgres = Postgres(config.postgres_dbs)
-#	print postgres.dbs
-#	result = postgres.execute(config.postgres_dbname, "select * from mios_report_uptime where hostgroupid = %s order by hostname, itemname" % 8)
-#	print result
-#	sys.exit(1)
 	# get hostgroup
 	if len(sys.argv) > 2:
 		print "To many arguments passed"
