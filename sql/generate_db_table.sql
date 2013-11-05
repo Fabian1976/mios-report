@@ -40,5 +40,3 @@ grant select on groups to mios;
 grant select on hosts_groups to mios;
 grant select on hosts to mios;
 grant select on items to mios;
-
-create index concurrently hist_uint_itemid_clock on history_uint(itemid, clock);
