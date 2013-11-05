@@ -5,7 +5,7 @@ __version__   = "2.3"
 
 import ConfigParser
 import sys, os
-import time
+import time, datetime
 import traceback
 from getpass import getpass
 # Add mios-report LIB to path
@@ -93,14 +93,13 @@ class Config:
 		try:
 			self.report_start_date = self.config.get('report', 'start_date')
 			# validate date
-			import datetime
 			datetime.datetime.strptime(self.report_start_date, '%d-%m-%Y')
 		except:
 			self.report_start_date = ''
 		try:
 			self.report_period = self.config.get('report', 'period')
 			# Convert period to seconds
-			import re, calendar, datetime
+			import re, calendar
 			match = re.match(r"([0-9]+)([a-z]+)", self.report_period, re.I)
 			if match:
 				period_items = match.groups()
@@ -121,7 +120,7 @@ class Config:
 					total_seconds = int(period_items[0]) * 366 * seconds_in_day
 				else:
 					total_seconds = int(period_items[0]) * 365 * seconds_in_day
-			self.report_period = total_seconds - 1 # Subtract 1 second so the report doesn't go from 1-10-2013 to 1-11-2013 but from 1-10-2013 till 31-10-2013
+			self.report_period = total_seconds - 1
 		except:
 			raise
 			# Defaults to 1 week
@@ -381,6 +380,28 @@ def getUptimeGraph(itemid):
 	uptime_graph.color('00dd00','dd0000', 'ff8800')
 	uptime_graph.save(str(itemid) + '.png')
 
+	# Generate table overview of down time (get consecutive down periods)
+	item_interval = postgres.execute(config.postgres_dbname, "select delay from zabbix.items where itemid = %s" % itemid)[0][0]
+	item_interval *=2 #Double interval. Interval is never exact. Allways has a deviation of 1 or 2 seconds. So we double the interval just to be safe
+	downtime_periods = []
+	if len(polling_down_rows) > 0:
+		for num in range(len(polling_down_rows)):
+			if num == 0:
+				start_period = polling_down_rows[num]
+				prev_clock = polling_down_rows[num]
+			else:
+				if polling_down_rows[num] <= prev_clock + item_interval:
+					# Consecutive down time
+					end_period = polling_down_rows[num]
+					prev_clock = polling_down_rows[num]
+				else:
+					downtime_periods.append((start_period, end_period))
+					start_period = polling_down_rows[num]
+					prev_clock = polling_down_rows[num]
+		downtime_periods.append((start_period, end_period))
+	return downtime_periods
+		
+
 def getGraphsList(hostgroupid):
 	return postgres.execute(config.postgres_dbname, "select * from mios_report_graphs where hostgroupid = %s order by hostname, graphname" % hostgroupid)
 
@@ -446,18 +467,30 @@ def generateReport(hostgroupname, graphData, itemData):
 			hosts.append(record['hostname'])
 	uptime_items = []
 	for record in itemData: # Create list of uptime items for iteration
-		if record['itemname'].split('Check - ')[1] not in uptime_items:
-			uptime_items.append(record['itemname'].split('Check - ')[1])
+		if record['itemname'] not in uptime_items:
+			uptime_items.append(record['itemname'])
 
 	body.append(docx.heading("Beschikbaarheid business services", 2))
 	for item in uptime_items:
 		body.append(docx.heading(item, 3))
 		for record in itemData:
-			if record['itemname'].split('Check - ')[1] == item:
-				print "Generating uptime graph '%s' from item '%s'" % (record['itemname'].split('Check - ')[1], item)
-				getUptimeGraph(record['itemid'])
+			if record['itemname'] == item:
+				print "Generating uptime graph '%s' from item '%s'" % (record['itemname'], item)
+				downtime_periods = getUptimeGraph(record['itemid'])
 				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200)
 				body.append(picpara)
+				tbl_rows = []
+				tbl_heading = [ 'Start downtime', 'Einde downtime', 'Duur' ]
+				tbl_rows.append(tbl_heading)
+				for num in range(len(downtime_periods)):
+					tbl_row = []
+					(start_period, end_period) = downtime_periods[num]
+					tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+					tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+					tbl_row.append(hms(end_period - start_period))
+					tbl_rows.append(tbl_row)
+				if len(downtime_periods) > 0:
+					body.append(docx.table(tbl_rows))
 #				body.append(docx.caption(record['itemname'].split('Check - ')[1]))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
 
@@ -526,10 +559,23 @@ def generateReport(hostgroupname, graphData, itemData):
 			os.rmdir(os.path.join(root, name))
 	print "Done cleaning up\n"
 
+def hms(seconds):
+	minutes, seconds = divmod(seconds, 60)
+	hours, minutes = divmod(minutes, 60)
+	hours %= 24
+	if hours != 0:
+		result = str(hours) + " uur, " + str(minutes) + " minuten en " + str(seconds) + " seconden"
+	elif minutes != 0:
+		result = str(minutes) + " minuten en " + str(seconds) + " seconden"
+	else:
+		result = str(seconds) + " seconden"
+	return result
+
 def main():
 	global postgres
 
 	postgres = Postgres(config.postgres_dbs)
+
 	# get hostgroup
 	if len(sys.argv) > 2:
 		print "To many arguments passed"
