@@ -338,7 +338,7 @@ def getUptimeGraph(itemid):
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
 	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from zabbix.history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
-	rows = postgres.execute(config.postgres_dbname, "select clock from zabbix.history_uint where itemid = %s and clock > %s and clock < %s and value = 0" % (itemid, start_epoch, end_epoch))
+	rows = postgres.execute(config.postgres_dbname, "select clock from zabbix.history_uint where itemid = %s and clock > %s and clock < %s and value = 0 order by clock" % (itemid, start_epoch, end_epoch))
 	polling_down_rows = []
 	for row in rows:
 		polling_down_rows.append(row[0])
