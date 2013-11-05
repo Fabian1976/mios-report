@@ -121,11 +121,11 @@ class Config:
 					total_seconds = int(period_items[0]) * 366 * seconds_in_day
 				else:
 					total_seconds = int(period_items[0]) * 365 * seconds_in_day
-			self.report_period = total_seconds
+			self.report_period = total_seconds - 1 # Subtract 1 second so the report doesn't go from 1-10-2013 to 1-11-2013 but from 1-10-2013 till 31-10-2013
 		except:
 			raise
 			# Defaults to 1 week
-			self.report_period = 604800
+			self.report_period = 604800 - 1
 		try:
 			self.report_graph_width = self.config.get('report', 'graph_width')
 		except:
