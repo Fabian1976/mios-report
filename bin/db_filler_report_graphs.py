@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.2"
+__version__   = "2.3"
 
 import ConfigParser
 import sys, os
@@ -313,14 +313,14 @@ def storeGraphs(hostgroupid, hostgroupname, menu_data):
 	pg_cursor = pg_connection.cursor()
 
 	num_hosts = len(menu_data['options'])
-	pg_cursor.execute("delete from mios_report where hostgroupid = %s", (hostgroupid,))
+	pg_cursor.execute("delete from mios_report_graphs where hostgroupid = %s", (hostgroupid,))
 	# do not commit! stay in same transaction so rollback will work if an error occurs
 	for host in range(num_hosts):
 		num_graphs = len(menu_data['options'][host]['options'])
 		for graph in range(num_graphs):
 			if menu_data['options'][host]['options'][graph]['selected'] != '0':
 				try:
-					pg_cursor.execute("insert into mios_report (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, %s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
+					pg_cursor.execute("insert into mios_report_graphs (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, %s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
 				except:
 					print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
 					pg_connection.rollback()
@@ -382,5 +382,4 @@ if  __name__ == "__main__":
 #		print "Zabbix API Version: %s" % zapi.api_version()
 	except ZabbixAPIException, e:
 		sys.stderr.write(str(e) + '\n')
-
 	main()
