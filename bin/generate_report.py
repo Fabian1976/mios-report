@@ -491,7 +491,7 @@ def generateReport(hostgroupname, graphData, itemData):
 					tbl_rows.append(tbl_row)
 				if len(downtime_periods) > 0:
 					body.append(docx.table(tbl_rows))
-#				body.append(docx.caption(record['itemname'].split('Check - ')[1]))
+				body.append(docx.figureCaption(record['itemname']))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	# Performance grafieken
@@ -504,7 +504,7 @@ def generateReport(hostgroupname, graphData, itemData):
 				getGraph(record['graphid'])
 				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
 				body.append(picpara)
-				body.append(docx.caption(record['graphname']))
+				body.append(docx.figureCaption(record['graphname']))
 		body.append(docx.pagebreak(type='page', orient='portrait'))
 	# Resource grafieken
 	body.append(docx.heading("Resource grafieken", 2))
@@ -516,7 +516,7 @@ def generateReport(hostgroupname, graphData, itemData):
 				getGraph(record['graphid'])
 				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
 				body.append(picpara)
-				body.append(docx.caption(record['graphname']))
+				body.append(docx.figureCaption(record['graphname']))
 		body.append(docx.pagebreak(type='page', orient='portrait'))
 	print "\nDone generating graphs..."
 
@@ -557,6 +557,7 @@ def generateReport(hostgroupname, graphData, itemData):
 			os.remove(os.path.join(root, name))
 		for name in dirs:
 			os.rmdir(os.path.join(root, name))
+	os.remove('/tmp/docx_seq')
 	print "Done cleaning up\n"
 
 def hms(seconds):

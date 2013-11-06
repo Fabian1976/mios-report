@@ -285,21 +285,62 @@ def caption(captiontext, lang='en'):
 	paragraph.append(run)
 	return paragraph
 
-def figureCaption(captiontext, lang='nl'):
-	# TODO
+def figureCaption(captiontext, lang='en'):
 	'''Make a new caption for a figure, return the caption element'''
-	lmap = {'en': 'Figure', 'nl': 'Figure'}
+	lmap = {'en': 'Caption', 'nl': 'Bijschrift'}
 	paragraph = makeelement('p')
 	pr = makeelement('pPr')
 	pStyle = makeelement('pStyle', attributes={'val': lmap[lang]})
-	run = makeelement('r')
-	text = makeelement('t', tagtext=captiontext)
-#	text = makeelement('t', nsprefix='xml',tagtext=captiontext, attributes={'space': "preserve"}, attrnsprefix='xml')
-#	text = makeelement('t', nsprefix='xml',tagtext=captiontext, attributes={'xml\:space': "preserve"})
+	run1 = makeelement('r')
+	text1 = makeelement('t', 'Afbeelding ')
+	text1.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+	run1.append(text1)
+	run2 = makeelement('r')
+	text2 = makeelement('fldChar', attributes={'fldCharType': 'begin'})
+	run2.append(text2)
+	run3 = makeelement('r')
+	text3 = makeelement('instrText', ' SEQ Figure \* ARABIC ')
+	text3.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+	run3.append(text3)
+	run4 = makeelement('r')
+	text4 = makeelement('fldChar', attributes={'fldCharType': 'separate'})
+	run4.append(text4)
+	#Volgnummer. TODO: opvolgend maken
+	sequence_file = '/tmp/docx_seq'
+	if os.path.isfile(sequence_file):
+		f = open(sequence_file, 'r')
+		sequence = int(f.readline())
+		f.close()
+	else:
+		sequence = 1
+	run5 = makeelement('r')
+	text5 = makeelement('t', str(sequence))
+	run5.append(text5)
+	sequence += 1
+	f = open(sequence_file, 'w')
+	f.write(str(sequence))
+	f.close()
+
+	run6 = makeelement('r')
+	text6 = makeelement('fldChar', attributes={'fldCharType': 'end'})
+	run6.append(text6)
+	run7 = makeelement('r')
+	text7 = makeelement('t', ':')
+	run7.append(text7)
+	run8 = makeelement('r')
+	text8 = makeelement('t', tagtext=' '+captiontext)
+	text8.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+	run8.append(text8)
 	pr.append(pStyle)
-	run.append(text)
 	paragraph.append(pr)
-	paragraph.append(run)
+	paragraph.append(run1)
+	paragraph.append(run2)
+	paragraph.append(run3)
+	paragraph.append(run4)
+	paragraph.append(run5)
+	paragraph.append(run6)
+	paragraph.append(run7)
+	paragraph.append(run8)
 	return paragraph
 
 def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
