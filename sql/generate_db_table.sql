@@ -18,7 +18,7 @@ create table mios_report_uptime
   hostgroupname character varying(100),
   hostid numeric(10,0) not null,
   hostname character varying(100),
-  itemidid numeric(10,0) not null,
+  itemid numeric(10,0) not null,
   itemname character varying(100),
   constraint pk_mios_report_uptime primary key (hostgroupid, hostid, itemid)
   using index tablespace mios_index
@@ -40,5 +40,3 @@ grant select on groups to mios;
 grant select on hosts_groups to mios;
 grant select on hosts to mios;
 grant select on items to mios;
-
-create index concurrently hist_uint_itemid_clock on history_uint(itemid, clock);
