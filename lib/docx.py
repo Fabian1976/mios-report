@@ -305,7 +305,6 @@ def figureCaption(captiontext, lang='en'):
 	run4 = makeelement('r')
 	text4 = makeelement('fldChar', attributes={'fldCharType': 'separate'})
 	run4.append(text4)
-	#Volgnummer. TODO: opvolgend maken
 	sequence_file = '/tmp/docx_seq'
 	if os.path.isfile(sequence_file):
 		f = open(sequence_file, 'r')
