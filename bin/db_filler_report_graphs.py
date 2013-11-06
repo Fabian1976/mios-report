@@ -19,6 +19,8 @@ from zabbix_api import ZabbixAPI, ZabbixAPIException
 
 import curses, os #curses is the interface for capturing key presses on the menu, os launches the files
 
+postgres = None
+
 class Config:
 	def __init__(self, conf_file):
 		self.config = None
@@ -26,10 +28,7 @@ class Config:
 		self.zabbix_user = ''
 		self.zabbix_password = ''
 		self.postgres_dbname = ''
-		self.postgres_host = ''
-		self.postgres_port = ''
-		self.postgres_user = ''
-		self.postgres_password = ''
+		self.postgres_dbs = {}
 		self.report_name = ''
 		self.report_template = ''
 		self.report_start_date = ''
@@ -66,21 +65,22 @@ class Config:
 		except:
 			self.postgres_dbname = 'postgres'
 		try:
-			self.postgres_host = self.config.get('miosdb', 'host')
+			postgres_host = self.config.get('miosdb', 'host')
 		except:
-			self.postgres_host = 'localhost'
+			postgres_host = 'localhost'
 		try:
-			self.postgres_port = self.config.get('miosdb', 'port')
+			postgres_port = self.config.get('miosdb', 'port')
 		except:
-			self.portgres_post = '5432'
+			portgres_post = '5432'
 		try:
-			self.postgres_user = self.config.get('miosdb', 'user')
+			postgres_user = self.config.get('miosdb', 'user')
 		except:
-			self.postgres_user = 'postgres'
+			postgres_user = 'postgres'
 		try:
-			self.postgres_password = self.config.get('miosdb', 'password')
+			postgres_password = self.config.get('miosdb', 'password')
 		except:
-			self.postgres_password = 'postgres'
+			postgres_password = 'postgres'
+		self.postgres_dbs[self.postgres_dbname] = (postgres_host, postgres_port, postgres_user, postgres_password)
 		try:
 			self.report_name = self.config.get('report', 'name')
 		except:
@@ -101,6 +101,131 @@ class Config:
 			self.report_graph_width = self.config.get('report', 'graph_width')
 		except:
 			self.report_graph_width = '1200'
+
+class Postgres(object):
+	def __init__(self, instances):
+
+		self.postgres_support = 0
+		self.connections      = []
+		self.cursor           = []
+		self.version          = []
+		self.host             = []
+		self.port             = []
+		self.user             = []
+		self.password         = []
+		self.dbs              = []
+		self.instances        = instances
+		self.last_connect     = []
+#		self.logger           = logging.getLogger(type(self).__name__)
+
+		try:
+			import psycopg2
+			import psycopg2.extras
+			self.psycopg2 = psycopg2
+			self.psycopg2_extras = psycopg2.extras
+			self.postgres_support = 1
+			print("Successfully loaded psycopg2 module")
+		except ImportError:
+			print("Module psycopg2 is not installed, please install it!")
+			raise
+		except:
+			print("Error while loading psycopg2 module!")
+			raise
+
+		if self.postgres_support == 0:
+			return None
+
+		for instance in instances:
+			host, port, user, password = instances[instance]
+			self.host.append(host)
+			self.port.append(port)
+			self.user.append(user)
+			self.password.append(password)
+			self.dbs.append(instance)
+			self.connections.append(None)
+			self.cursor.append(None)
+			self.version.append('')
+			indx = self.dbs.index(instance)
+			self.last_connect.append(0)
+			self.connect(indx)
+
+	def connect(self, indx):
+
+		while self.connections[indx] == None:
+			try:
+				self.connections[indx] = self.psycopg2.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (self.host[indx], self.port[indx], self.dbs[indx], self.user[indx], self.password[indx]))
+				print("Connection succesful")
+			except Exception, e:
+				print("Unable to connect to Postgres")
+				print("PG: Additional information: %s" % e)
+		self.cursor[indx]      = self.connections[indx].cursor(cursor_factory=self.psycopg2_extras.DictCursor)
+		self.cursor[indx].execute('select version()')
+		self.version[indx]     = self.cursor[indx].fetchone()
+		self.last_connect      = time.time()
+		print("Connect to Postgres version %s DB: %s" % (self.version[indx], self.dbs[indx]))
+
+	def execute(self, db, query):
+
+		if self.postgres_support == 0:
+			print("Postgres not supported")
+			return None
+
+		if not db in self.dbs:
+			return -1
+		try:
+			indx = self.dbs.index(db)
+			try:
+				self.cursor[indx].execute(query)
+			except Exception, e:
+				print("PG: Failed to execute query: %s" % query)
+				print("PG: Additional info: %s" % e)
+				return -1
+			if query.split()[0].lower() == 'select':
+				try:
+					value = self.cursor[indx].fetchall()
+				except Exception, e:
+					print("PG: Failed to fetch resultset")
+					print("PG: Additional info: %s" % e)
+					return -1
+				return value
+		except:
+			print("Error in Postgres connection DB: %s" % db)
+			raise
+			return -2
+
+	def commit(self, db):
+		if not db in self.dbs:
+			return -1
+		try:
+			indx = self.dbs.index(db)
+			self.connections[indx].commit()
+		except Exception, e:
+			print("Error in Postgres connection DB: %s" % db)
+			print("PG: Additional info: %s" % e)
+			return -1
+
+	def rollback(self, db):
+		if not db in self.dbs:
+			return -1
+		try:
+			indx = self.dbs.index(db)
+			self.connections[indx].rollback()
+		except Exception, e:
+			print("Error in Postgres connection DB: %s" % db)
+			print("PG: Additional info: %s" % e)
+			return -1
+
+	def closeConnection(self, db):
+		if not db in self.dbs:
+			return -1
+		try:
+			indx = self.dbs.index(db)
+			self.cursor[indx].close()
+			self.connections[indx].close()
+		except Exception, e:
+			print("Error in Postgres connection DB: %s" % db)
+			print("PG: Additional info: %s" % e)
+			return -1
 
 def selectHostgroup():
 	teller = 0
@@ -137,6 +262,20 @@ def getHosts(hostgroupid):
 	hosts = {}
 	for host in zapi.host.get({ "output": "extend", "groupids" : hostgroupid }):
 		hosts[host['name']] = (host['hostid'], getGraphs(host['hostid']))
+	graphs_in_db = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_graphs where hostgroupid = %s" % hostgroupid)[0][0]
+	import copy
+	hosts_temp = copy.deepcopy(hosts)
+	if graphs_in_db > 0:
+		graphs_in_db = postgres.execute(config.postgres_dbname, "select hostid, graphid, graphtype from mios_report_graphs where hostgroupid = %s" % hostgroupid)
+		for host in hosts:
+			for hnum in range(len(graphs_in_db)):
+				if int(hosts[host][0]) == int(graphs_in_db[hnum][0]):
+					graphs = hosts[host][1]
+					for graph in graphs:
+						for gnum in range(len(graphs_in_db)):
+							if int(graphs[graph][0]) == int(graphs_in_db[hnum][gnum]):
+								hosts_temp[host][1][graph] = (graphs_in_db[hnum][1], graphs_in_db[hnum][2])
+	hosts = hosts_temp
 	return hosts
 
 def getGraphs(hostid):
@@ -296,43 +435,29 @@ def checkGraphs(hostgroupid, hostgroupname, menu_data):
 		print "\nNo graphs selected. Nothing to do."
 
 def storeGraphs(hostgroupid, hostgroupname, menu_data):
-	try:
-		import psycopg2
-		pg = psycopg2
-	except ImportError:
-		print "Module psycopg2 is not installed, please install it!"
-		raise
-	except:
-		print "Error while loading psycopg2 module!"
-		raise
-	try:
-		pg_connection = pg.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (config.postgres_host, config.postgres_port, config.postgres_dbname, config.postgres_user, config.postgres_password))
-	except Exception:
-		print "Cannot connect to database"
-		raise
-	pg_cursor = pg_connection.cursor()
 
 	num_hosts = len(menu_data['options'])
-	pg_cursor.execute("delete from mios_report_graphs where hostgroupid = %s", (hostgroupid,))
+	postgres.execute(config.postgres_dbname, "delete from mios_report_graphs where hostgroupid = %s" % hostgroupid)
 	# do not commit! stay in same transaction so rollback will work if an error occurs
 	for host in range(num_hosts):
 		num_graphs = len(menu_data['options'][host]['options'])
 		for graph in range(num_graphs):
 			if menu_data['options'][host]['options'][graph]['selected'] != '0':
 				try:
-					pg_cursor.execute("insert into mios_report_graphs (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, %s, %s, %s, %s, %s, %s)", (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
+					postgres.execute(config.postgres_dbname, "insert into mios_report_graphs (hostgroupid, hostgroupname, hostid, hostname, graphid, graphname, graphtype) values (%s, '%s', %s, '%s', %s, '%s', '%s')" % (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][graph]['graphid'], menu_data['options'][host]['options'][graph]['title'], menu_data['options'][host]['options'][graph]['selected']))
 				except:
 					print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
-					pg_connection.rollback()
-					pg_cursor.close()
-					pg_connection.close()
+					postgres.rollback(config.postgres_dbname)
+					postgres.closeConnection(config.postgres_dbname)
 					raise
-	pg_connection.commit()
-	pg_cursor.close()
-	pg_connection.close()
+	postgres.commit(config.postgres_dbname)
+	postgres.closeConnection(config.postgres_dbname)
 
 def main():
-	# get host groups
+	global postgres
+
+	postgres = Postgres(config.postgres_dbs)
+	# get hostgroups
 	hostgroupid, hostgroupname = selectHostgroup()
 	os.system('clear')
 	print "The hosts and related graphs from group '%s' are being fetched..." % hostgroupname
