@@ -460,7 +460,12 @@ def generateReport(hostgroupname, graphData, itemData):
 		document = docx.opendocx(existing_report, mreport_home + '/tmp')
 	relationships = docx.relationshiplist(existing_report, mreport_home + '/tmp')
 	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
-	body.append(docx.heading("MIOS rapportage " + hostgroupname, 1))
+	body.append(docx.heading("MIOS monitoring", 1))
+	body.append(docx.heading("Beschikbaarheid business services", 2))
+	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business services grafisch weergegeven. Business services worden gezien als de services die toegang verschaffen tot core-functionaliteit."))
+	body.append(docx.heading("Web-check", 3))
+	#WEB check grafieken toevoegen
+
 	hosts = []
 	for record in graphData: # Create list of hosts for iteration
 		if record['hostname'] not in hosts:
@@ -470,7 +475,8 @@ def generateReport(hostgroupname, graphData, itemData):
 		if record['itemname'] not in uptime_items:
 			uptime_items.append(record['itemname'])
 
-	body.append(docx.heading("Beschikbaarheid business services", 2))
+	body.append(docx.heading("Beschikbaarheid business componenten", 2))
+	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business componenten grafisch weergegeven. Business componenten zijn de componenten die samen een business service vormen."))
 	for item in uptime_items:
 		body.append(docx.heading(item, 3))
 		for record in itemData:
@@ -492,10 +498,26 @@ def generateReport(hostgroupname, graphData, itemData):
 				if len(downtime_periods) > 0:
 					body.append(docx.table(tbl_rows))
 				body.append(docx.figureCaption(record['itemname']))
+	body.append(docx.heading("Maintenance-overzicht", 3))
+	#Maintenance periodes toevoegen
+	body.append(docx.heading("Opmerkingen", 3))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	# Performance grafieken
-	body.append(docx.heading("Performance grafieken", 2))
+	body.append(docx.heading("Basic performance counters", 2))
+	body.append(docx.paragraph('De grafieken in dit hoofdstuk zijn grafische weergaves van "basic performance counters". '
+	 'Deze counters zeggen niets over de prestaties van een applicatie of platform, maar geven aan of componenten uit de infrastructuur op de top van hun kunnen, of wellicht eroverheen worden geduwd. '
+	 'De basic performance counters worden per (relevante) server gerapporteerd, over de afgelopen maand. Over het algemeen worden deze counters gemeten op OS-niveau:'))
+	points = [	'CPU-load: geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + aktieve processen op de CPU;',
+			'CPU utilization: dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, onderverdeeld naar type CPU-gebruik;',
+			'Memory utilization: dit getal geeft aan hoeveel memory er op de server in gebruik is, onderverdeeld naar type memory-gebruik;',
+			'Disk stats: geeft latency aan van relevante disken;',
+			'Network traffic: geeft network-gebruik aan.']
+	for point in points:
+#		body.append(docx.paragraph(point, style='ListBullit'))
+		body.append(docx.paragraph(point, style='ListParagraph'))
+	body.append(docx.paragraph("De grafieken zijn gegroepeerd naar server, dit geeft het beste inzicht in de specifieke server."))
+	body.append(docx.pagebreak(type='page', orient='portrait'))
 	for host in hosts:
 		body.append(docx.heading(host, 3))
 		for record in graphData:
@@ -506,8 +528,19 @@ def generateReport(hostgroupname, graphData, itemData):
 				body.append(picpara)
 				body.append(docx.figureCaption(record['graphname']))
 		body.append(docx.pagebreak(type='page', orient='portrait'))
+
+	body.append(docx.heading("Opmerkingen", 3))
+
 	# Resource grafieken
-	body.append(docx.heading("Resource grafieken", 2))
+	body.append(docx.heading("Trending", 2))
+	body.append(docx.paragraph('Uitleg over termijn (6-maandelijks etc.)...Alleen relevante counters....:'))
+	points = [	'CPU-load (minimaal 6 maanden)',
+			'Counters die tegen limiet aan gaan komen',
+			'Disk-bezetting',
+			'IOPS']
+	for point in points:
+#		body.append(docx.paragraph(point, style='ListBullit'))
+		body.append(docx.paragraph(point, style='ListParagraph'))
 	for host in hosts:
 		body.append(docx.heading(host, 3))
 		for record in graphData:
@@ -518,6 +551,18 @@ def generateReport(hostgroupname, graphData, itemData):
 				body.append(picpara)
 				body.append(docx.figureCaption(record['graphname']))
 		body.append(docx.pagebreak(type='page', orient='portrait'))
+	body.append(docx.heading("Opmerkingen", 3))
+	# Check of er advanced performance counters zijn.
+	# Zo ja, maak hoofdstuk "ADVANCED PERFORMANCE COUNTERS" aan
+	# todo
+
+	body.append(docx.heading("Backup overzicht", 2))
+	body.append(docx.paragraph('Blabla-uitleg en zo.'))
+	body.append(docx.heading("Overzicht", 3))
+	# Grafiek maken van backup item
+
+	body.append(docx.heading("Opmerkingen", 3))
+
 	print "\nDone generating graphs..."
 
 	print "\nStart generating report"
