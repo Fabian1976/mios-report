@@ -514,8 +514,8 @@ def generateReport(hostgroupname, graphData, itemData):
 			'Disk stats: geeft latency aan van relevante disken;',
 			'Network traffic: geeft network-gebruik aan.']
 	for point in points:
-#		body.append(docx.paragraph(point, style='ListBullit'))
-		body.append(docx.paragraph(point, style='ListParagraph'))
+		body.append(docx.paragraph(point, style='ListBulleted'))
+#		body.append(docx.paragraph(point, style='ListParagraph'))
 	body.append(docx.paragraph("De grafieken zijn gegroepeerd naar server, dit geeft het beste inzicht in de specifieke server."))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
 	for host in hosts:
@@ -539,8 +539,8 @@ def generateReport(hostgroupname, graphData, itemData):
 			'Disk-bezetting',
 			'IOPS']
 	for point in points:
-#		body.append(docx.paragraph(point, style='ListBullit'))
-		body.append(docx.paragraph(point, style='ListParagraph'))
+		body.append(docx.paragraph(point, style='ListBulleted'))
+#		body.append(docx.paragraph(point, style='ListParagraph'))
 	for host in hosts:
 		body.append(docx.heading(host, 3))
 		for record in graphData:
