@@ -260,7 +260,7 @@ def selectHostgroup():
 
 def getHosts(hostgroupid):
 	hosts = {}
-	for host in zapi.host.get({ "output": "extend", "groupids" : hostgroupid }):
+	for host in zapi.host.get({ "output": "extend", "groupids" : [ 4, hostgroupid ]}):
 		hosts[host['name']] = (host['hostid'], getGraphs(host['hostid']))
 	graphs_in_db = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_graphs where hostgroupid = %s" % hostgroupid)[0][0]
 	import copy
@@ -304,7 +304,7 @@ def runmenu(menu, parent):
 
 	# Loop until return key is pressed
 	while x !=ord('\n'):
-		if pos != oldpos or x == 112 or x == 114:
+		if pos != oldpos or x == 112 or x == 116 or x == 119:
 			oldpos = pos
 			screen.clear() #clears previous screen on key press and updates display based on pos
 			screen.border(0)
@@ -321,8 +321,10 @@ def runmenu(menu, parent):
 						check = '[ ]'
 					elif menu['options'][index]['selected'] == 'p':
 						check = '[p]'
-					elif menu['options'][index]['selected'] == 'r':
-						check = '[r]'
+					elif menu['options'][index]['selected'] == 't':
+						check = '[t]'
+					elif menu['options'][index]['selected'] == 'w':
+						check = '[w]'
 					screen.addstr(5+index,4, "%-50s %s" % (menu['options'][index]['title'], check), textstyle)
 				else:
 					screen.addstr(5+index,4, "%s" % menu['options'][index]['title'], textstyle)
@@ -359,12 +361,19 @@ def runmenu(menu, parent):
 				else:
 					menu['options'][pos]['selected'] = 'p'
 			screen.refresh()
-		elif x == 114: # r(esources)
+		elif x == 116: # t(rend)
 			if 'graphid' in menu['options'][pos]:
-				if menu['options'][pos]['selected'] == 'r':
+				if menu['options'][pos]['selected'] == 't':
 					menu['options'][pos]['selected'] = '0'
 				else:
-					menu['options'][pos]['selected'] = 'r'
+					menu['options'][pos]['selected'] = 't'
+			screen.refresh()
+		elif x == 119: # w(ebcheck)
+			if 'graphid' in menu['options'][pos]:
+				if menu['options'][pos]['selected'] == 'w':
+					menu['options'][pos]['selected'] = '0'
+				else:
+					menu['options'][pos]['selected'] = 'w'
 			screen.refresh()
 		elif x != ord('\n'):
 			curses.flash()
@@ -413,8 +422,10 @@ def checkGraphs(hostgroupid, hostgroupname, menu_data):
 			for graph in range(num_graphs):
 				if menu_data['options'][host]['options'][graph]['selected'] == 'p':
 					graph_type = "Performance graph"
-				elif menu_data['options'][host]['options'][graph]['selected'] == 'r':
-					graph_type = "Resource graph"
+				elif menu_data['options'][host]['options'][graph]['selected'] == 't':
+					graph_type = "Trend graph"
+				elif menu_data['options'][host]['options'][graph]['selected'] == 'w':
+					graph_type = "Web-check graph"
 				if menu_data['options'][host]['options'][graph]['selected'] != '0':
 					print "\t\t%-18s: %s" % (graph_type, menu_data['options'][host]['options'][graph]['title'])
 		else:
@@ -472,7 +483,7 @@ def main():
 		menu_hosts['title'] = host
 		menu_hosts['hostid'] = hosts[host][0]
 		menu_hosts['type'] = 'MENU'
-		menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph and "r" for a resource graph'
+		menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph, "t" for a trend graph and "w" for a web-check graph'
 		graphs = hosts[host][1]
 		host_options = []
 		for graph in sorted(graphs.iterkeys()):
