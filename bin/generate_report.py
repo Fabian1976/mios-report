@@ -670,10 +670,12 @@ def cleanup():
 	print "\nStart cleanup"
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
+	print "Remove generated graph images"
 	for file in glob.glob(mreport_home + '/bin/*.png'):
 		os.remove(file)
 	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 		os.remove(file)
+	print "Remove files from tmp folders"
 	for root, dirs, files in os.walk(mreport_home + '/tmp/', topdown=False):
 		for name in files:
 			os.remove(os.path.join(root, name))
