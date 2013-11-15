@@ -615,7 +615,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	for item in backupList:
 		tbl_row = []
 		(backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
-		if backup_status = 'COMPLETED':
+		if backup_status == 'COMPLETED':
 			backup_status = 'OK'
 		tbl_row.append(backup_start)
 		tbl_row.append(backup_end)
@@ -652,7 +652,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		sendReport(config.report_name, hostgroupname)
 	else:
 		print "No email receiver specified. Report will not be sent by email."
-	cleanup()
+#	cleanup()
 
 def hms(seconds):
 	minutes, seconds = divmod(seconds, 60)
@@ -684,6 +684,8 @@ def cleanup():
 
 def main():
 	global postgres
+	import atexit
+	atexit.register(cleanup)
 
 	postgres = Postgres(config.postgres_dbs)
 
