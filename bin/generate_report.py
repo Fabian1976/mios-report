@@ -24,21 +24,22 @@ postgres = None
 
 class Config:
 	def __init__(self, conf_file, customer_conf_file):
-		self.config             = None
-		self.customer_config    = None
-		self.zabbix_frontend    = ''
-		self.zabbix_user        = ''
-		self.zabbix_password    = ''
-		self.postgres_dbname    = ''
-		self.postgres_dbs       = {}
-		self.hostgroupid        = None
-		self.report_name        = ''
-		self.report_template    = ''
-		self.report_start_date  = ''
-		self.report_period      = ''
-		self.report_graph_width = ''
-		self.report_title       = ''
-		self.report_backup_item = None
+		self.config              = None
+		self.customer_config     = None
+		self.zabbix_frontend     = ''
+		self.zabbix_user         = ''
+		self.zabbix_password     = ''
+		self.postgres_dbname     = ''
+		self.postgres_dbs        = {}
+		self.hostgroupid         = None
+		self.report_name         = ''
+		self.report_template     = ''
+		self.report_start_date   = ''
+		self.report_period       = ''
+		self.report_trend_period = ''
+		self.report_graph_width  = ''
+		self.report_title        = ''
+		self.report_backup_item  = None
 		try:
 			self.mreport_home = os.environ['MREPORT_HOME']
 		except:
@@ -157,6 +158,19 @@ class Config:
 			raise
 			# Defaults to 1 week
 			self.report_period = 604800 - 1
+		# Calculate end_date
+		if self.report_start_date != '':
+			# If start_date is given calculate end_date with period
+			self.report_end_date = datetime.date.strftime(datetime.datetime.strptime(self.report_start_date, "%d-%m-%Y") + datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
+		else:
+			# If no start_date is given, assume today as end_date and calculate the start_date with period
+			self.report_end_date = datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y')
+			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
+
+		try:
+			self.report_trend_period = self.customer_config.get('report', 'trend_period')
+		except:
+			self.report_trend_period = self.report_period
 		try:
 			self.report_graph_width = self.customer_config.get('report', 'graph_width')
 		except:
@@ -169,14 +183,6 @@ class Config:
 			self.report_backup_item = self.customer_config.get('report', 'backup_item')
 		except:
 			self.report_backup_item = None
-
-		if self.report_start_date != '':
-			# If start_date is given calculate end_date with period
-			self.report_end_date = datetime.date.strftime(datetime.datetime.strptime(self.report_start_date, "%d-%m-%Y") + datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
-		else:
-			# If no start_date is given, assume today as end_date and calculate the start_date with period
-			self.report_end_date = datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y')
-			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
 
 class Postgres(object):
 
