@@ -652,7 +652,21 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		sendReport(config.report_name, hostgroupname)
 	else:
 		print "No email receiver specified. Report will not be sent by email."
+	cleanup()
 
+def hms(seconds):
+	minutes, seconds = divmod(seconds, 60)
+	hours, minutes = divmod(minutes, 60)
+	hours %= 24
+	if hours != 0:
+		result = str(hours) + " uur, " + str(minutes) + " minuten en " + str(seconds) + " seconden"
+	elif minutes != 0:
+		result = str(minutes) + " minuten en " + str(seconds) + " seconden"
+	else:
+		result = str(seconds) + " seconden"
+	return result
+
+def cleanup():
 	print "\nStart cleanup"
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
@@ -667,18 +681,6 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			os.rmdir(os.path.join(root, name))
 	os.remove('/tmp/docx_seq')
 	print "Done cleaning up\n"
-
-def hms(seconds):
-	minutes, seconds = divmod(seconds, 60)
-	hours, minutes = divmod(minutes, 60)
-	hours %= 24
-	if hours != 0:
-		result = str(hours) + " uur, " + str(minutes) + " minuten en " + str(seconds) + " seconden"
-	elif minutes != 0:
-		result = str(minutes) + " minuten en " + str(seconds) + " seconden"
-	else:
-		result = str(seconds) + " seconden"
-	return result
 
 def main():
 	global postgres
