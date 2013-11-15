@@ -681,7 +681,10 @@ def cleanup():
 			os.remove(os.path.join(root, name))
 		for name in dirs:
 			os.rmdir(os.path.join(root, name))
-	os.remove('/tmp/docx_seq')
+	try:
+		os.remove('/tmp/docx_seq')
+	except:
+		pass
 	print "Done cleaning up\n"
 
 def main():
