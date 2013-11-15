@@ -272,9 +272,8 @@ def getHosts(hostgroupid):
 				if int(hosts[host][0]) == int(graphs_in_db[hnum][0]):
 					graphs = hosts[host][1]
 					for graph in graphs:
-						for gnum in range(len(graphs_in_db)):
-							if int(graphs[graph][0]) == int(graphs_in_db[hnum][gnum]):
-								hosts_temp[host][1][graph] = (graphs_in_db[hnum][1], graphs_in_db[hnum][2])
+						if int(graphs[graph][0]) == int(graphs_in_db[hnum][1]):
+							hosts_temp[host][1][graph] = (graphs_in_db[hnum][1], graphs_in_db[hnum][2])
 	hosts = hosts_temp
 	return hosts
 
