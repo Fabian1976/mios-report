@@ -204,12 +204,10 @@ class Postgres(object):
 			try:
 				self.connections[indx] = self.psycopg2.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (self.host[indx], self.port[indx], self.dbs[indx], self.user[indx], self.password[indx]))
 				print("Connection succesful")
-				time.sleep(2)
 			except Exception, e:
 				print("Unable to connect to Postgres")
 				print("PG: Additional information: %s" % e)
 				print("Trying to reconnect in 10 seconds")
-				time.sleep(10)
 		self.cursor[indx]      = self.connections[indx].cursor(cursor_factory=self.psycopg2_extras.DictCursor)
 		self.cursor[indx].execute('select version()')
 		self.version[indx]     = self.cursor[indx].fetchone()
@@ -401,12 +399,33 @@ def getUptimeGraph(itemid):
 		downtime_periods.append((start_period, end_period))
 	return downtime_periods
 		
+def getMaintenancePeriods(hostgroupid):
+	day, month, year = map(int, config.report_start_date.split('-'))
+	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	end_epoch = start_epoch + config.report_period
+	maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from zabbix.timeperiods\
+	 inner join zabbix.maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
+	 inner join zabbix.maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
+	 inner join zabbix.maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
+	 inner join zabbix.groups on maintenances_groups.groupid = groups.groupid\
+	 where groups.groupid = %s and timeperiods.start_date between %s and %s" %(hostgroupid, start_epoch, end_epoch))
+	return maintenance_rows
 
 def getGraphsList(hostgroupid):
 	return postgres.execute(config.postgres_dbname, "select * from mios_report_graphs where hostgroupid = %s order by hostname, graphname" % hostgroupid)
 
 def getItemsList(hostgroupid):
 	return postgres.execute(config.postgres_dbname, "select * from mios_report_uptime where hostgroupid = %s order by hostname, itemname" % hostgroupid)
+
+def getBackupList(itemid):
+	day, month, year = map(int, config.report_start_date.split('-'))
+
+	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	end_epoch = start_epoch + config.report_period
+
+#	backupList = postgres.execute(config.postgres_dbname, "select value from zabbix.history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
+	backupList = [['15-11-2013 00:59:03;15-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL'] ,['14-11-2013 00:59:03;14-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL']]
+	return backupList
 
 def sendReport(filename, hostgroupname):
 	import smtplib
@@ -447,7 +466,7 @@ def sendReport(filename, hostgroupname):
 	mailer.sendmail(sender, receiver, msg.as_string())
 	mailer.quit()
 
-def generateReport(hostgroupname, graphData, itemData):
+def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	import docx
 
 	if config.report_template == '':
@@ -464,8 +483,13 @@ def generateReport(hostgroupname, graphData, itemData):
 	body.append(docx.heading("Beschikbaarheid business services", 2))
 	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business services grafisch weergegeven. Business services worden gezien als de services die toegang verschaffen tot core-functionaliteit."))
 	body.append(docx.heading("Web-check", 3))
-	#WEB check grafieken toevoegen
-
+	for record in graphData:
+		if record['graphtype'] == 'w':
+			print "Generating web-check graph '%s'" % record['graphname']
+			getGraph(record['graphid'])
+			relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+			body.append(picpara)
+			body.append(docx.figureCaption(record['graphname']))
 	hosts = []
 	for record in graphData: # Create list of hosts for iteration
 		if record['hostname'] not in hosts:
@@ -485,6 +509,7 @@ def generateReport(hostgroupname, graphData, itemData):
 				downtime_periods = getUptimeGraph(record['itemid'])
 				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200)
 				body.append(picpara)
+				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
 				tbl_heading = [ 'Start downtime', 'Einde downtime', 'Duur' ]
 				tbl_rows.append(tbl_heading)
@@ -497,9 +522,24 @@ def generateReport(hostgroupname, graphData, itemData):
 					tbl_rows.append(tbl_row)
 				if len(downtime_periods) > 0:
 					body.append(docx.table(tbl_rows))
-				body.append(docx.figureCaption(record['itemname']))
+	# Maintenance periodes
 	body.append(docx.heading("Maintenance-overzicht", 3))
-	#Maintenance periodes toevoegen
+	maintenance_periods = getMaintenancePeriods(hostgroupid)
+	tbl_rows = []
+	tbl_heading = [ 'Start maintenance', 'Einde maintenance', 'Duur' ]
+	tbl_rows.append(tbl_heading)
+	for num in range(len(maintenance_periods)):
+		tbl_row = []
+		(start_period, end_period) = maintenance_periods[num]
+		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(hms(end_period - start_period))
+		tbl_rows.append(tbl_row)
+	if len(maintenance_periods) > 0:
+		body.append(docx.table(tbl_rows))
+	else:
+		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland maintenance geweest."))
+
 	body.append(docx.heading("Opmerkingen", 3))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
 
@@ -515,23 +555,26 @@ def generateReport(hostgroupname, graphData, itemData):
 			'Network traffic: geeft network-gebruik aan.']
 	for point in points:
 		body.append(docx.paragraph(point, style='ListBulleted'))
-#		body.append(docx.paragraph(point, style='ListParagraph'))
 	body.append(docx.paragraph("De grafieken zijn gegroepeerd naar server, dit geeft het beste inzicht in de specifieke server."))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
 	for host in hosts:
-		body.append(docx.heading(host, 3))
+		host_has_graphs = 0
 		for record in graphData:
 			if record['hostname'] == host and record['graphtype'] == 'p':
-				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
-				getGraph(record['graphid'])
-				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
-				body.append(picpara)
-				body.append(docx.figureCaption(record['graphname']))
-		body.append(docx.pagebreak(type='page', orient='portrait'))
+				host_has_graphs = 1
+		if host_has_graphs:
+			body.append(docx.heading(host, 3))
+			for record in graphData:
+				if record['hostname'] == host and record['graphtype'] == 'p':
+					print "Generating performance graph '%s' from host '%s'" % (record['graphname'], host)
+					getGraph(record['graphid'])
+					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+					body.append(picpara)
+					body.append(docx.figureCaption(record['graphname']))
+			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
-
-	# Resource grafieken
+	# Trending grafieken
 	body.append(docx.heading("Trending", 2))
 	body.append(docx.paragraph('Uitleg over termijn (6-maandelijks etc.)...Alleen relevante counters....:'))
 	points = [	'CPU-load (minimaal 6 maanden)',
@@ -540,34 +583,54 @@ def generateReport(hostgroupname, graphData, itemData):
 			'IOPS']
 	for point in points:
 		body.append(docx.paragraph(point, style='ListBulleted'))
-#		body.append(docx.paragraph(point, style='ListParagraph'))
 	for host in hosts:
-		body.append(docx.heading(host, 3))
+		host_has_graphs = 0
 		for record in graphData:
-			if record['hostname'] == host and record['graphtype'] == 'r':
-				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
-				getGraph(record['graphid'])
-				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
-				body.append(picpara)
-				body.append(docx.figureCaption(record['graphname']))
-		body.append(docx.pagebreak(type='page', orient='portrait'))
+			if record['hostname'] == host and record['graphtype'] == 'p':
+				host_has_graphs = 1
+		if host_has_graphs:
+			body.append(docx.heading(host, 3))
+			for record in graphData:
+				if record['hostname'] == host and record['graphtype'] == 't':
+					print "Generating trending graph '%s' from host '%s'" % (record['graphname'], host)
+					getGraph(record['graphid'])
+					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+					body.append(picpara)
+					body.append(docx.figureCaption(record['graphname']))
+			body.append(docx.pagebreak(type='page', orient='portrait'))
+
 	body.append(docx.heading("Opmerkingen", 3))
 	# Check of er advanced performance counters zijn.
 	# Zo ja, maak hoofdstuk "ADVANCED PERFORMANCE COUNTERS" aan
 	# todo
 
+	# Backup overzicht
 	body.append(docx.heading("Backup overzicht", 2))
 	body.append(docx.paragraph('Blabla-uitleg en zo.'))
 	body.append(docx.heading("Overzicht", 3))
-	# Grafiek maken van backup item
-
+	backupList = getBackupList(25480)
+	tbl_rows = []
+	tbl_heading = [ 'Start backup', 'Einde backup', 'Duur', 'Status', 'Type' ]
+	tbl_rows.append(tbl_heading)
+	for item in backupList:
+		tbl_row = []
+		(backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
+		if backup_status = 'COMPLETED':
+			backup_status = 'OK'
+		tbl_row.append(backup_start)
+		tbl_row.append(backup_end)
+		tbl_row.append(backup_duration)
+		tbl_row.append(backup_status)
+		tbl_row.append(backup_type)
+		tbl_rows.append(tbl_row)
+	body.append(docx.table(tbl_rows))
 	body.append(docx.heading("Opmerkingen", 3))
 
 	print "\nDone generating graphs..."
 
 	print "\nStart generating report"
-	title = 'MIOS rapportage'
-	subject = 'Performance en resources rapportage'
+	title = 'Promedico service rapport'
+	subject = 'Performance en trending rapportage'
 	creator = 'Vermont 24/7'
 	keywords = ['MIOS', 'Rapportage', 'Vermont']
 	coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
@@ -644,7 +707,7 @@ def main():
 		graphsList = getGraphsList(hostgroupid)
 		itemsList = getItemsList(hostgroupid)
 #		itemsList = {}
-		generateReport(hostgroupname, graphsList, itemsList)
+		generateReport(hostgroupid, hostgroupname, graphsList, itemsList)
 
 if  __name__ == "__main__":
 	global config
