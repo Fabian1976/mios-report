@@ -23,32 +23,44 @@ import curses, os #curses is the interface for capturing key presses on the menu
 postgres = None
 
 class Config:
-	def __init__(self, conf_file):
-		self.config = None
-		self.zabbix_frontend = ''
-		self.zabbix_user = ''
-		self.zabbix_password = ''
-		self.postgres_dbname = ''
-		self.postgres_dbs = {}
-		self.report_name = ''
-		self.report_template = ''
-		self.report_start_date = ''
-		self.report_period = ''
+	def __init__(self, conf_file, customer_conf_file):
+		self.config             = None
+		self.customer_config    = None
+		self.zabbix_frontend    = ''
+		self.zabbix_user        = ''
+		self.zabbix_password    = ''
+		self.postgres_dbname    = ''
+		self.postgres_dbs       = {}
+		self.hostgroupid        = None
+		self.report_name        = ''
+		self.report_template    = ''
+		self.report_start_date  = ''
+		self.report_period      = ''
 		self.report_graph_width = ''
+		self.report_title       = ''
+		self.report_backup_item = None
 		try:
 			self.mreport_home = os.environ['MREPORT_HOME']
 		except:
 			self.mreport_home = '/opt/mios/mios-report'
 
 		self.conf_file = conf_file
+		self.customer_conf_file = customer_conf_file
 		if not os.path.exists(self.conf_file):
 			print "Can't open config file %s" % self.conf_file
 			exit(1)
-
+		elif not os.path.exists(self.customer_conf_file):
+			print "Can't open config file %s" % self.customer_conf_file
+			exit(1)
+		# Read common config
 		self.config = ConfigParser.ConfigParser()
 		self.config.read(self.conf_file)
+		# Read customer specific config
+		self.customer_config = ConfigParser.ConfigParser()
+		self.customer_config.read(self.customer_conf_file)
 
 	def parse(self):
+		# Parse common config
 		try:
 			self.zabbix_frontend = self.config.get('common', 'zabbix_frontend')
 		except:
@@ -82,22 +94,42 @@ class Config:
 		except:
 			postgres_password = 'postgres'
 		self.postgres_dbs[self.postgres_dbname] = (postgres_host, postgres_port, postgres_user, postgres_password)
+		# Parse e-mail stuff (also common)
 		try:
-			self.report_name = self.config.get('report', 'name')
+			self.email_sender = self.config.get('email', 'sender')
+		except:
+			from socket import gethostname
+			self.email_sender = 'mios@' + gethostname()
+		try:
+			self.email_receiver = self.config.get('email','receiver')
+		except:
+			self.email_receiver = ''
+		try:
+			self.email_server = self.config.get('email', 'server')
+		except:
+			self.email_server = 'localhost'
+
+		# Parse customer specific config
+		try:
+			self.hostgroupid = self.customer_config.get('report', 'hostgroupid')
+		except:
+			self.hostgroupid = None
+		try:
+			self.report_name = self.customer_config.get('report', 'name')
 		except:
 			self.report_name = 'Report.docx'
 		try:
-			self.report_template = self.config.get('report', 'template')
+			self.report_template = self.customer_config.get('report', 'template')
 		except:
 			self.report_template = ''
 		try:
-			self.report_start_date = self.config.get('report', 'start_date')
+			self.report_start_date = self.customer_config.get('report', 'start_date')
 			# validate date
 			datetime.datetime.strptime(self.report_start_date, '%d-%m-%Y')
 		except:
 			self.report_start_date = ''
 		try:
-			self.report_period = self.config.get('report', 'period')
+			self.report_period = self.customer_config.get('report', 'period')
 			# Convert period to seconds
 			import re, calendar
 			match = re.match(r"([0-9]+)([a-z]+)", self.report_period, re.I)
@@ -126,29 +158,25 @@ class Config:
 			# Defaults to 1 week
 			self.report_period = 604800 - 1
 		try:
-			self.report_graph_width = self.config.get('report', 'graph_width')
+			self.report_graph_width = self.customer_config.get('report', 'graph_width')
 		except:
 			self.report_graph_width = '1200'
+		try:
+			self.report_title = self.customer_config.get('report', 'title')
+		except:
+			self.report_title = "MIOS rapportage"
+		try:
+			self.report_backup_item = self.customer_config.get('report', 'backup_item')
+		except:
+			self.report_backup_item = None
 
 		if self.report_start_date != '':
+			# If start_date is given calculate end_date with period
 			self.report_end_date = datetime.date.strftime(datetime.datetime.strptime(self.report_start_date, "%d-%m-%Y") + datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
 		else:
+			# If no start_date is given, assume today as end_date and calculate the start_date with period
 			self.report_end_date = datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y')
 			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
-
-		try:
-			self.email_sender = self.config.get('email', 'sender')
-		except:
-			from socket import gethostname
-			self.email_sender = 'mios@' + gethostname()
-		try:
-			self.email_receiver = self.config.get('email','receiver')
-		except:
-			self.email_receiver = ''
-		try:
-			self.email_server = self.config.get('email', 'server')
-		except:
-			self.email_server = 'localhost'
 
 class Postgres(object):
 
@@ -538,7 +566,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	if len(maintenance_periods) > 0:
 		body.append(docx.table(tbl_rows))
 	else:
-		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland maintenance geweest."))
+		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
 	body.append(docx.heading("Opmerkingen", 3))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
@@ -603,33 +631,35 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	# Check of er advanced performance counters zijn.
 	# Zo ja, maak hoofdstuk "ADVANCED PERFORMANCE COUNTERS" aan
 	# todo
+	print "\nDone generating graphs..."
 
 	# Backup overzicht
 	body.append(docx.heading("Backup overzicht", 2))
 	body.append(docx.paragraph('Blabla-uitleg en zo.'))
 	body.append(docx.heading("Overzicht", 3))
-	backupList = getBackupList(25480)
-	tbl_rows = []
-	tbl_heading = [ 'Start backup', 'Einde backup', 'Duur', 'Status', 'Type' ]
-	tbl_rows.append(tbl_heading)
-	for item in backupList:
-		tbl_row = []
-		(backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
-		if backup_status == 'COMPLETED':
-			backup_status = 'OK'
-		tbl_row.append(backup_start)
-		tbl_row.append(backup_end)
-		tbl_row.append(backup_duration)
-		tbl_row.append(backup_status)
-		tbl_row.append(backup_type)
-		tbl_rows.append(tbl_row)
-	body.append(docx.table(tbl_rows))
-	body.append(docx.heading("Opmerkingen", 3))
-
-	print "\nDone generating graphs..."
+	if not config.report_backup_item:
+		body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
+	else:
+		backupList = getBackupList(config.report_backup_item)
+		tbl_rows = []
+		tbl_heading = [ 'Start backup', 'Einde backup', 'Duur', 'Status', 'Type' ]
+		tbl_rows.append(tbl_heading)
+		for item in backupList:
+			tbl_row = []
+			(backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
+			if backup_status == 'COMPLETED':
+				backup_status = 'OK'
+			tbl_row.append(backup_start)
+			tbl_row.append(backup_end)
+			tbl_row.append(backup_duration)
+			tbl_row.append(backup_status)
+			tbl_row.append(backup_type)
+			tbl_rows.append(tbl_row)
+		body.append(docx.table(tbl_rows))
+		body.append(docx.heading("Opmerkingen", 3))
 
 	print "\nStart generating report"
-	title = 'Promedico service rapport'
+	title = config.report_title
 	subject = 'Performance en trending rapportage'
 	creator = 'Vermont 24/7'
 	keywords = ['MIOS', 'Rapportage', 'Vermont']
@@ -695,16 +725,11 @@ def main():
 	postgres = Postgres(config.postgres_dbs)
 
 	# get hostgroup
-	if len(sys.argv) > 2:
-		print "To many arguments passed"
-		print "Usage: %s (optional hostgroupid. If no id is given, a selection menu will apear)" % sys.argv[0]
-	elif len(sys.argv) == 2:
-		hostgroupid, hostgroupname = sys.argv[1], getHostgroupName(sys.argv[1])
-		if not hostgroupname:
-			print "No hostgroup found for id: %s" % hostgroupid
-			sys.exit(1)
-	else:
+	if not config.hostgroupid:
 		hostgroupid, hostgroupname = selectHostgroup()
+	else:
+		hostgroupid, hostgroupname = config.hostgroupid, getHostgroupName(config.hostgroupid)
+
 	if not checkHostgroup(hostgroupid):
 		os.system('clear')
 		print "There are no graphs registered in the database for hostgroup '%s'" % hostgroupname
@@ -726,7 +751,20 @@ if  __name__ == "__main__":
 		mreport_home = "/opt/mios/mios-report"
 
 	config_file = mreport_home + '/conf/mios-report.conf'
-	config = Config(config_file)
+	from optparse import OptionParser
+
+	usage = "usage: %prog [options]"
+	parser = OptionParser(usage=usage, version="%prog " + __version__)
+	parser.add_option("-c", "--customer", dest="customer_conf_file", metavar="FILE", help="file which contains report information for customer")
+	(options, args) = parser.parse_args()
+	if not options.customer_conf_file:
+		parser.error("No option given")
+	try:
+		customer_conf_file = options.customer_conf_file
+	except:
+		parser.error("Wrong or unknown option")
+
+	config = Config(config_file, customer_conf_file)
 	config.parse()
 
 	zapi = ZabbixAPI(server=config.zabbix_frontend,log_level=0)
