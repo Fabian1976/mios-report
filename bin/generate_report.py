@@ -123,12 +123,15 @@ class Config:
 			self.report_template = self.customer_config.get('report', 'template')
 		except:
 			self.report_template = ''
-		try:
-			self.report_start_date = self.customer_config.get('report', 'start_date')
-			# validate date
-			datetime.datetime.strptime(self.report_start_date, '%d-%m-%Y')
-		except:
-			self.report_start_date = ''
+		if 'start_date' not in globals(): # so start_date is not passed as an argument to the script
+			try:
+				self.report_start_date = self.customer_config.get('report', 'start_date')
+				# validate date
+				datetime.datetime.strptime(self.report_start_date, '%d-%m-%Y')
+			except:
+				self.report_start_date = ''
+		else:
+			self.report_start_date = start_date
 		try:
 			self.report_period = self.customer_config.get('report', 'period')
 			# Convert period to seconds
@@ -147,7 +150,7 @@ class Config:
 				total_seconds = int(period_items[0]) * 7 * seconds_in_day
 			elif period_items[1] == 'm':
 				total_seconds = 0
-				for next_month in range(int(items[0])):
+				for next_month in range(int(period_items[0])):
 					if month+next_month > 12:
 						month -= 12
 						year += 1
@@ -599,12 +602,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	for host in hosts:
 		host_has_graphs = 0
 		for record in graphData:
-			if record['hostname'] == host and record['graphtype'] == 'p':
+			if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
 				host_has_graphs = 1
 		if host_has_graphs:
 			body.append(docx.heading(host, 3))
 			for record in graphData:
-				if record['hostname'] == host and record['graphtype'] == 'p':
+				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
 					print "Generating performance graph '%s' from host '%s'" % (record['graphname'], host)
 					getGraph(record['graphid'])
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
@@ -625,12 +628,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	for host in hosts:
 		host_has_graphs = 0
 		for record in graphData:
-			if record['hostname'] == host and record['graphtype'] == 'p':
+			if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
 				host_has_graphs = 1
 		if host_has_graphs:
 			body.append(docx.heading(host, 3))
 			for record in graphData:
-				if record['hostname'] == host and record['graphtype'] == 't':
+				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
 					print "Generating trending graph '%s' from host '%s'" % (record['graphname'], host)
 					getGraph(record['graphid'])
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
@@ -756,6 +759,7 @@ def main():
 
 if  __name__ == "__main__":
 	global config
+	global start_date
 	try:
 		mreport_home = os.environ['MREPORT_HOME']
 	except:
@@ -764,7 +768,7 @@ if  __name__ == "__main__":
 	config_file = mreport_home + '/conf/mios-report.conf'
 	from optparse import OptionParser
 
-	usage = "usage: %prog [options]"
+	usage = "usage: %prog [options] <start_date: dd-mm-yyyy>"
 	parser = OptionParser(usage=usage, version="%prog " + __version__)
 	parser.add_option("-c", "--customer", dest="customer_conf_file", metavar="FILE", help="file which contains report information for customer")
 	(options, args) = parser.parse_args()
@@ -774,10 +778,18 @@ if  __name__ == "__main__":
 		customer_conf_file = options.customer_conf_file
 	except:
 		parser.error("Wrong or unknown option")
+	if len(args) == 1:
+		start_date = args[0]
+		try:
+			valid_date = time.strptime(start_date, '%d-%m-%Y')
+		except ValueError:
+			print 'Invalid date! (%s)' % start_date
+			sys.exit(1)
 
 	config = Config(config_file, customer_conf_file)
 	config.parse()
-
+	print config.report_start_date
+	sys.exit(1)
 	zapi = ZabbixAPI(server=config.zabbix_frontend,log_level=0)
 
 	try:
