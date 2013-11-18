@@ -32,6 +32,7 @@ create index mreportuptm_hostgroupid on mios_report_uptime(hostgroupid);
 -- Dat is nodig voor het genereren van de uptime pie charts
 grant usage on schema zabbix to mios;
 grant select on history_uint to mios;
+grant select on history_text to mios;
 grant select on timeperiods to mios;
 grant select on maintenances_windows to mios;
 grant select on maintenances to mios;

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.4"
+__version__   = "2.5"
 
 import ConfigParser
 import sys, os
@@ -23,32 +23,46 @@ import curses, os #curses is the interface for capturing key presses on the menu
 postgres = None
 
 class Config:
-	def __init__(self, conf_file):
-		self.config = None
-		self.zabbix_frontend = ''
-		self.zabbix_user = ''
-		self.zabbix_password = ''
-		self.postgres_dbname = ''
-		self.postgres_dbs = {}
-		self.report_name = ''
-		self.report_template = ''
-		self.report_start_date = ''
-		self.report_period = ''
-		self.report_graph_width = ''
+	def __init__(self, conf_file, customer_conf_file):
+		self.config              = None
+		self.customer_config     = None
+		self.zabbix_frontend     = ''
+		self.zabbix_user         = ''
+		self.zabbix_password     = ''
+		self.postgres_dbname     = ''
+		self.postgres_dbs        = {}
+		self.hostgroupid         = None
+		self.report_name         = ''
+		self.report_template     = ''
+		self.report_start_date   = ''
+		self.report_period       = ''
+		self.report_trend_start  = ''
+		self.report_trend_period = ''
+		self.report_graph_width  = ''
+		self.report_title        = ''
+		self.report_backup_item  = None
 		try:
 			self.mreport_home = os.environ['MREPORT_HOME']
 		except:
 			self.mreport_home = '/opt/mios/mios-report'
 
 		self.conf_file = conf_file
+		self.customer_conf_file = customer_conf_file
 		if not os.path.exists(self.conf_file):
 			print "Can't open config file %s" % self.conf_file
 			exit(1)
-
+		elif not os.path.exists(self.customer_conf_file):
+			print "Can't open config file %s" % self.customer_conf_file
+			exit(1)
+		# Read common config
 		self.config = ConfigParser.ConfigParser()
 		self.config.read(self.conf_file)
+		# Read customer specific config
+		self.customer_config = ConfigParser.ConfigParser()
+		self.customer_config.read(self.customer_conf_file)
 
 	def parse(self):
+		# Parse common config
 		try:
 			self.zabbix_frontend = self.config.get('common', 'zabbix_frontend')
 		except:
@@ -82,22 +96,45 @@ class Config:
 		except:
 			postgres_password = 'postgres'
 		self.postgres_dbs[self.postgres_dbname] = (postgres_host, postgres_port, postgres_user, postgres_password)
+		# Parse e-mail stuff (also common)
 		try:
-			self.report_name = self.config.get('report', 'name')
+			self.email_sender = self.config.get('email', 'sender')
+		except:
+			from socket import gethostname
+			self.email_sender = 'mios@' + gethostname()
+		try:
+			self.email_receiver = self.config.get('email','receiver')
+		except:
+			self.email_receiver = ''
+		try:
+			self.email_server = self.config.get('email', 'server')
+		except:
+			self.email_server = 'localhost'
+
+		# Parse customer specific config
+		try:
+			self.hostgroupid = self.customer_config.get('report', 'hostgroupid')
+		except:
+			self.hostgroupid = None
+		try:
+			self.report_name = self.customer_config.get('report', 'name')
 		except:
 			self.report_name = 'Report.docx'
 		try:
-			self.report_template = self.config.get('report', 'template')
+			self.report_template = self.customer_config.get('report', 'template')
 		except:
 			self.report_template = ''
+		if 'start_date' not in globals(): # so start_date is not passed as an argument to the script
+			try:
+				self.report_start_date = self.customer_config.get('report', 'start_date')
+				# validate date
+				datetime.datetime.strptime(self.report_start_date, '%d-%m-%Y')
+			except:
+				self.report_start_date = ''
+		else:
+			self.report_start_date = start_date
 		try:
-			self.report_start_date = self.config.get('report', 'start_date')
-			# validate date
-			datetime.datetime.strptime(self.report_start_date, '%d-%m-%Y')
-		except:
-			self.report_start_date = ''
-		try:
-			self.report_period = self.config.get('report', 'period')
+			self.report_period = self.customer_config.get('report', 'period')
 			# Convert period to seconds
 			import re, calendar
 			match = re.match(r"([0-9]+)([a-z]+)", self.report_period, re.I)
@@ -113,42 +150,71 @@ class Config:
 			elif period_items[1] == 'w':
 				total_seconds = int(period_items[0]) * 7 * seconds_in_day
 			elif period_items[1] == 'm':
-				days_in_month = calendar.monthrange(year, month)[1]
-				total_seconds = int(period_items[0]) * days_in_month * seconds_in_day
+				total_seconds = 0
+				for next_month in range(int(period_items[0])):
+					if month+next_month > 12:
+						month -= 12
+						year += 1
+					days_in_month = calendar.monthrange(year, month+next_month)[1]
+					total_seconds += days_in_month * seconds_in_day
 			elif period_items[1] == 'y':
 				if calendar.isleap(year):
 					total_seconds = int(period_items[0]) * 366 * seconds_in_day
 				else:
 					total_seconds = int(period_items[0]) * 365 * seconds_in_day
-			self.report_period = total_seconds - 1
+			self.report_period = total_seconds
 		except:
 			raise
 			# Defaults to 1 week
-			self.report_period = 604800 - 1
+			self.report_period = 604800
+		# Calculate end_date
+		if self.report_start_date != '':
+			# If start_date is given calculate end_date with period
+			self.report_end_date = datetime.date.strftime(datetime.datetime.strptime(self.report_start_date, "%d-%m-%Y") + datetime.timedelta(seconds=self.report_period-1), '%d-%m-%Y')
+		else:
+			# If no start_date is given, assume today as end_date and calculate the start_date with period
+			self.report_end_date = datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y')
+			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period-1), '%d-%m-%Y')
+
 		try:
-			self.report_graph_width = self.config.get('report', 'graph_width')
+			self.report_trend_period = self.customer_config.get('report', 'trend_period')
+			import re, calendar
+			match = re.match(r"([0-9]+)([a-z]+)", self.report_trend_period, re.I)
+			if match:
+				period_items = match.groups()
+			seconds_in_day = 86400
+			if period_items[1] == 'm':
+				day, month, year = map(int, self.report_start_date.split('-'))
+				month -= int(period_items[0])
+				month += 1
+				if month < 1:
+					month += 12
+					year -= 1
+				total_seconds = 0
+				self.report_trend_start = str(day).zfill(2) + '-' + str(month).zfill(2) + '-' + str(year).zfill(2)
+				for next_month in range(int(period_items[0])):
+					if month+next_month > 12:
+						month -= 12
+						year += 1
+					days_in_month = calendar.monthrange(year, month+next_month)[1]
+					print "Days in month %s: %s" % (month+next_month, days_in_month)
+					total_seconds += days_in_month * seconds_in_day
+			self.report_trend_period = total_seconds
+		except:
+			raise
+			self.report_trend_period = self.report_period
+		try:
+			self.report_graph_width = self.customer_config.get('report', 'graph_width')
 		except:
 			self.report_graph_width = '1200'
-
-		if self.report_start_date != '':
-			self.report_end_date = datetime.date.strftime(datetime.datetime.strptime(self.report_start_date, "%d-%m-%Y") + datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
-		else:
-			self.report_end_date = datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y')
-			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
-
 		try:
-			self.email_sender = self.config.get('email', 'sender')
+			self.report_title = self.customer_config.get('report', 'title')
 		except:
-			from socket import gethostname
-			self.email_sender = 'mios@' + gethostname()
+			self.report_title = "MIOS rapportage"
 		try:
-			self.email_receiver = self.config.get('email','receiver')
+			self.report_backup_item = self.customer_config.get('report', 'backup_item')
 		except:
-			self.email_receiver = ''
-		try:
-			self.email_server = self.config.get('email', 'server')
-		except:
-			self.email_server = 'localhost'
+			self.report_backup_item = None
 
 class Postgres(object):
 
@@ -204,12 +270,10 @@ class Postgres(object):
 			try:
 				self.connections[indx] = self.psycopg2.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (self.host[indx], self.port[indx], self.dbs[indx], self.user[indx], self.password[indx]))
 				print("Connection succesful")
-				time.sleep(2)
 			except Exception, e:
 				print("Unable to connect to Postgres")
 				print("PG: Additional information: %s" % e)
 				print("Trying to reconnect in 10 seconds")
-				time.sleep(10)
 		self.cursor[indx]      = self.connections[indx].cursor(cursor_factory=self.psycopg2_extras.DictCursor)
 		self.cursor[indx].execute('select version()')
 		self.version[indx]     = self.cursor[indx].fetchone()
@@ -297,7 +361,7 @@ def checkHostgroup(hostgroupid):
 		result = 0
 	return result
 
-def getGraph(graphid):
+def getGraph(graphid, graphtype):
 	import pycurl
 	import StringIO
 	curl = pycurl.Curl()
@@ -312,7 +376,7 @@ def getGraph(graphid):
 	# When we leave the filename of the cookie empty, curl stores the cookie in memory
 	# so now the cookie doesn't have to be removed after usage. When the script finishes, the cookie is also gone
 	z_filename_cookie = ''
-	z_image_name = str(graphid) + '.png'
+	z_image_name = str(graphid) + '_' + graphtype + '.png'
 	# Log on to Zabbix and get session cookie
 	curl.setopt(curl.URL, z_url_index)
 	curl.setopt(curl.POSTFIELDS, z_login_data)
@@ -322,9 +386,14 @@ def getGraph(graphid):
 	# Retrieve graphs using cookie
 	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
 	# You can also give a starttime (&stime=yyyymmddhh24mm). Example: &stime=201310130000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
-	day, month, year = config.report_start_date.split('-')
-	stime = year + month + day + '000000'
-	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period))
+	if graphtype == 't': #trending graph
+		day, month, year = config.report_trend_start.split('-')
+		stime = year + month + day + '000000'
+		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_trend_period))
+	else: # normal graph
+		day, month, year = config.report_start_date.split('-')
+		stime = year + month + day + '000000'
+		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period))
 	curl.setopt(curl.WRITEFUNCTION, buffer.write)
 	curl.perform()
 	f = open(z_image_name, 'wb')
@@ -401,12 +470,33 @@ def getUptimeGraph(itemid):
 		downtime_periods.append((start_period, end_period))
 	return downtime_periods
 		
+def getMaintenancePeriods(hostgroupid):
+	day, month, year = map(int, config.report_start_date.split('-'))
+	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	end_epoch = start_epoch + config.report_period
+	maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from zabbix.timeperiods\
+	 inner join zabbix.maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
+	 inner join zabbix.maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
+	 inner join zabbix.maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
+	 inner join zabbix.groups on maintenances_groups.groupid = groups.groupid\
+	 where groups.groupid = %s and timeperiods.start_date between %s and %s" %(hostgroupid, start_epoch, end_epoch))
+	return maintenance_rows
 
 def getGraphsList(hostgroupid):
 	return postgres.execute(config.postgres_dbname, "select * from mios_report_graphs where hostgroupid = %s order by hostname, graphname" % hostgroupid)
 
 def getItemsList(hostgroupid):
 	return postgres.execute(config.postgres_dbname, "select * from mios_report_uptime where hostgroupid = %s order by hostname, itemname" % hostgroupid)
+
+def getBackupList(itemid):
+	day, month, year = map(int, config.report_start_date.split('-'))
+
+	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	end_epoch = start_epoch + config.report_period
+
+#	backupList = postgres.execute(config.postgres_dbname, "select value from zabbix.history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
+	backupList = [['15-11-2013 00:59:03;15-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL'] ,['14-11-2013 00:59:03;14-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL']]
+	return backupList
 
 def sendReport(filename, hostgroupname):
 	import smtplib
@@ -447,7 +537,7 @@ def sendReport(filename, hostgroupname):
 	mailer.sendmail(sender, receiver, msg.as_string())
 	mailer.quit()
 
-def generateReport(hostgroupname, graphData, itemData):
+def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	import docx
 
 	if config.report_template == '':
@@ -460,7 +550,17 @@ def generateReport(hostgroupname, graphData, itemData):
 		document = docx.opendocx(existing_report, mreport_home + '/tmp')
 	relationships = docx.relationshiplist(existing_report, mreport_home + '/tmp')
 	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
-	body.append(docx.heading("MIOS rapportage " + hostgroupname, 1))
+	body.append(docx.heading("MIOS monitoring", 1))
+	body.append(docx.heading("Beschikbaarheid business services", 2))
+	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business services grafisch weergegeven. Business services worden gezien als de services die toegang verschaffen tot core-functionaliteit."))
+	body.append(docx.heading("Web-check", 3))
+	for record in graphData:
+		if record['graphtype'] == 'w':
+			print "Generating web-check graph '%s'" % record['graphname']
+			getGraph(record['graphid'], 'w')
+			relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_w.png', record['graphname'], 450)
+			body.append(picpara)
+			body.append(docx.figureCaption(record['graphname']))
 	hosts = []
 	for record in graphData: # Create list of hosts for iteration
 		if record['hostname'] not in hosts:
@@ -470,7 +570,8 @@ def generateReport(hostgroupname, graphData, itemData):
 		if record['itemname'] not in uptime_items:
 			uptime_items.append(record['itemname'])
 
-	body.append(docx.heading("Beschikbaarheid business services", 2))
+	body.append(docx.heading("Beschikbaarheid business componenten", 2))
+	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business componenten grafisch weergegeven. Business componenten zijn de componenten die samen een business service vormen."))
 	for item in uptime_items:
 		body.append(docx.heading(item, 3))
 		for record in itemData:
@@ -479,6 +580,7 @@ def generateReport(hostgroupname, graphData, itemData):
 				downtime_periods = getUptimeGraph(record['itemid'])
 				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200)
 				body.append(picpara)
+				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
 				tbl_heading = [ 'Start downtime', 'Einde downtime', 'Duur' ]
 				tbl_rows.append(tbl_heading)
@@ -491,38 +593,117 @@ def generateReport(hostgroupname, graphData, itemData):
 					tbl_rows.append(tbl_row)
 				if len(downtime_periods) > 0:
 					body.append(docx.table(tbl_rows))
-#				body.append(docx.caption(record['itemname'].split('Check - ')[1]))
+	# Maintenance periodes
+	body.append(docx.heading("Maintenance-overzicht", 3))
+	maintenance_periods = getMaintenancePeriods(hostgroupid)
+	tbl_rows = []
+	tbl_heading = [ 'Start maintenance', 'Einde maintenance', 'Duur' ]
+	tbl_rows.append(tbl_heading)
+	for num in range(len(maintenance_periods)):
+		tbl_row = []
+		(start_period, end_period) = maintenance_periods[num]
+		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(hms(end_period - start_period))
+		tbl_rows.append(tbl_row)
+	if len(maintenance_periods) > 0:
+		body.append(docx.table(tbl_rows))
+	else:
+		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
+
+	body.append(docx.heading("Opmerkingen", 3))
 	body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	# Performance grafieken
-	body.append(docx.heading("Performance grafieken", 2))
+	body.append(docx.heading("Basic performance counters", 2))
+	body.append(docx.paragraph('De grafieken in dit hoofdstuk zijn grafische weergaves van "basic performance counters". '
+	 'Deze counters zeggen niets over de prestaties van een applicatie of platform, maar geven aan of componenten uit de infrastructuur op de top van hun kunnen, of wellicht eroverheen worden geduwd. '
+	 'De basic performance counters worden per (relevante) server gerapporteerd, over de afgelopen maand. Over het algemeen worden deze counters gemeten op OS-niveau:'))
+	points = [	'CPU-load: geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + aktieve processen op de CPU;',
+			'CPU utilization: dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, onderverdeeld naar type CPU-gebruik;',
+			'Memory utilization: dit getal geeft aan hoeveel memory er op de server in gebruik is, onderverdeeld naar type memory-gebruik;',
+			'Disk stats: geeft latency aan van relevante disken;',
+			'Network traffic: geeft network-gebruik aan.']
+	for point in points:
+		body.append(docx.paragraph(point, style='ListBulleted'))
+	body.append(docx.paragraph("De grafieken zijn gegroepeerd naar server, dit geeft het beste inzicht in de specifieke server."))
+	body.append(docx.pagebreak(type='page', orient='portrait'))
 	for host in hosts:
-		body.append(docx.heading(host, 3))
+		host_has_graphs = 0
 		for record in graphData:
-			if record['hostname'] == host and record['graphtype'] == 'p':
-				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
-				getGraph(record['graphid'])
-				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
-				body.append(picpara)
-				body.append(docx.caption(record['graphname']))
-		body.append(docx.pagebreak(type='page', orient='portrait'))
-	# Resource grafieken
-	body.append(docx.heading("Resource grafieken", 2))
+			if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
+				host_has_graphs = 1
+		if host_has_graphs:
+			body.append(docx.heading(host, 3))
+			for record in graphData:
+				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
+					print "Generating performance graph '%s' from host '%s'" % (record['graphname'], host)
+					getGraph(record['graphid'], 'p')
+					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_p.png', record['graphname'], 450)
+					body.append(picpara)
+					body.append(docx.figureCaption(record['graphname']))
+			body.append(docx.pagebreak(type='page', orient='portrait'))
+
+	body.append(docx.heading("Opmerkingen", 3))
+	# Trending grafieken
+	body.append(docx.heading("Trending", 2))
+	body.append(docx.paragraph('Uitleg over termijn (6-maandelijks etc.)...Alleen relevante counters....:'))
+	points = [	'CPU-load (minimaal 6 maanden)',
+			'Counters die tegen limiet aan gaan komen',
+			'Disk-bezetting',
+			'IOPS']
+	for point in points:
+		body.append(docx.paragraph(point, style='ListBulleted'))
 	for host in hosts:
-		body.append(docx.heading(host, 3))
+		host_has_graphs = 0
 		for record in graphData:
-			if record['hostname'] == host and record['graphtype'] == 'r':
-				print "Generating graph '%s' from host '%s'" % (record['graphname'], host)
-				getGraph(record['graphid'])
-				relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
-				body.append(picpara)
-				body.append(docx.caption(record['graphname']))
-		body.append(docx.pagebreak(type='page', orient='portrait'))
+			if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
+				host_has_graphs = 1
+		if host_has_graphs:
+			body.append(docx.heading(host, 3))
+			for record in graphData:
+				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
+					print "Generating trending graph '%s' from host '%s'" % (record['graphname'], host)
+					getGraph(record['graphid'], 't')
+					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_t.png', record['graphname'], 450)
+					body.append(picpara)
+					body.append(docx.figureCaption(record['graphname']))
+			body.append(docx.pagebreak(type='page', orient='portrait'))
+
+	body.append(docx.heading("Opmerkingen", 3))
+	# Check of er advanced performance counters zijn.
+	# Zo ja, maak hoofdstuk "ADVANCED PERFORMANCE COUNTERS" aan
+	# todo
 	print "\nDone generating graphs..."
 
+	# Backup overzicht
+	body.append(docx.heading("Backup overzicht", 2))
+	body.append(docx.paragraph('Blabla-uitleg en zo.'))
+	body.append(docx.heading("Overzicht", 3))
+	if not config.report_backup_item:
+		body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
+	else:
+		backupList = getBackupList(config.report_backup_item)
+		tbl_rows = []
+		tbl_heading = [ 'Start backup', 'Einde backup', 'Duur', 'Status', 'Type' ]
+		tbl_rows.append(tbl_heading)
+		for item in backupList:
+			tbl_row = []
+			(backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
+			if backup_status == 'COMPLETED':
+				backup_status = 'OK'
+			tbl_row.append(backup_start)
+			tbl_row.append(backup_end)
+			tbl_row.append(backup_duration)
+			tbl_row.append(backup_status)
+			tbl_row.append(backup_type)
+			tbl_rows.append(tbl_row)
+		body.append(docx.table(tbl_rows))
+		body.append(docx.heading("Opmerkingen", 3))
+
 	print "\nStart generating report"
-	title = 'MIOS rapportage'
-	subject = 'Performance en resources rapportage'
+	title = config.report_title
+	subject = 'Performance en trending rapportage'
 	creator = 'Vermont 24/7'
 	keywords = ['MIOS', 'Rapportage', 'Vermont']
 	coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
@@ -544,20 +725,7 @@ def generateReport(hostgroupname, graphData, itemData):
 		sendReport(config.report_name, hostgroupname)
 	else:
 		print "No email receiver specified. Report will not be sent by email."
-
-	print "\nStart cleanup"
-	import glob # Unix style pathname pattern expansion
-	# Remove files which are no longer necessary
-	for file in glob.glob(mreport_home + '/bin/*.png'):
-		os.remove(file)
-	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
-		os.remove(file)
-	for root, dirs, files in os.walk(mreport_home + '/tmp/', topdown=False):
-		for name in files:
-			os.remove(os.path.join(root, name))
-		for name in dirs:
-			os.rmdir(os.path.join(root, name))
-	print "Done cleaning up\n"
+#	cleanup()
 
 def hms(seconds):
 	minutes, seconds = divmod(seconds, 60)
@@ -571,22 +739,40 @@ def hms(seconds):
 		result = str(seconds) + " seconden"
 	return result
 
+def cleanup():
+	print "\nStart cleanup"
+	import glob # Unix style pathname pattern expansion
+	# Remove files which are no longer necessary
+	print "Remove generated graph images"
+	for file in glob.glob(mreport_home + '/bin/*.png'):
+		os.remove(file)
+	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
+		os.remove(file)
+	print "Remove files from tmp folders"
+	for root, dirs, files in os.walk(mreport_home + '/tmp/', topdown=False):
+		for name in files:
+			os.remove(os.path.join(root, name))
+		for name in dirs:
+			os.rmdir(os.path.join(root, name))
+	try:
+		os.remove('/tmp/docx_seq')
+	except:
+		pass
+	print "Done cleaning up\n"
+
 def main():
 	global postgres
+	import atexit
+	atexit.register(cleanup)
 
 	postgres = Postgres(config.postgres_dbs)
 
 	# get hostgroup
-	if len(sys.argv) > 2:
-		print "To many arguments passed"
-		print "Usage: %s (optional hostgroupid. If no id is given, a selection menu will apear)" % sys.argv[0]
-	elif len(sys.argv) == 2:
-		hostgroupid, hostgroupname = sys.argv[1], getHostgroupName(sys.argv[1])
-		if not hostgroupname:
-			print "No hostgroup found for id: %s" % hostgroupid
-			sys.exit(1)
-	else:
+	if not config.hostgroupid:
 		hostgroupid, hostgroupname = selectHostgroup()
+	else:
+		hostgroupid, hostgroupname = config.hostgroupid, getHostgroupName(config.hostgroupid)
+
 	if not checkHostgroup(hostgroupid):
 		os.system('clear')
 		print "There are no graphs registered in the database for hostgroup '%s'" % hostgroupname
@@ -598,17 +784,38 @@ def main():
 		graphsList = getGraphsList(hostgroupid)
 		itemsList = getItemsList(hostgroupid)
 #		itemsList = {}
-		generateReport(hostgroupname, graphsList, itemsList)
+		generateReport(hostgroupid, hostgroupname, graphsList, itemsList)
 
 if  __name__ == "__main__":
 	global config
+	global start_date
 	try:
 		mreport_home = os.environ['MREPORT_HOME']
 	except:
 		mreport_home = "/opt/mios/mios-report"
 
 	config_file = mreport_home + '/conf/mios-report.conf'
-	config = Config(config_file)
+	from optparse import OptionParser
+
+	usage = "usage: %prog [options] <start_date: dd-mm-yyyy>"
+	parser = OptionParser(usage=usage, version="%prog " + __version__)
+	parser.add_option("-c", "--customer", dest="customer_conf_file", metavar="FILE", help="file which contains report information for customer")
+	(options, args) = parser.parse_args()
+	if not options.customer_conf_file:
+		parser.error("No option given")
+	try:
+		customer_conf_file = options.customer_conf_file
+	except:
+		parser.error("Wrong or unknown option")
+	if len(args) == 1:
+		start_date = args[0]
+		try:
+			valid_date = time.strptime(start_date, '%d-%m-%Y')
+		except ValueError:
+			print 'Invalid date! (%s)' % start_date
+			sys.exit(1)
+
+	config = Config(config_file, customer_conf_file)
 	config.parse()
 
 	zapi = ZabbixAPI(server=config.zabbix_frontend,log_level=0)
