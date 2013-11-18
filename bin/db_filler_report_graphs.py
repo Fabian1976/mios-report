@@ -303,7 +303,7 @@ def runmenu(menu, parent):
 
 	# Loop until return key is pressed
 	while x !=ord('\n'):
-		if pos != oldpos or x == 112 or x == 116 or x == 119:
+		if pos != oldpos or x == 112 or x == 114 or x == 116 or x == 119:
 			oldpos = pos
 			screen.clear() #clears previous screen on key press and updates display based on pos
 			screen.border(0)
@@ -322,6 +322,8 @@ def runmenu(menu, parent):
 						check = '[p]'
 					elif menu['options'][index]['selected'] == 't':
 						check = '[t]'
+					elif menu['options'][index]['selected'] == 'r':
+						check = '[pt]'
 					elif menu['options'][index]['selected'] == 'w':
 						check = '[w]'
 					screen.addstr(5+index,4, "%-50s %s" % (menu['options'][index]['title'], check), textstyle)
@@ -366,6 +368,13 @@ def runmenu(menu, parent):
 					menu['options'][pos]['selected'] = '0'
 				else:
 					menu['options'][pos]['selected'] = 't'
+			screen.refresh()
+		elif x == 114: # r (performance and trending)
+			if 'graphid' in menu['options'][pos]:
+				if menu['options'][pos]['selected'] == 'r':
+					menu['options'][pos]['selected'] = '0'
+				else:
+					menu['options'][pos]['selected'] = 'r'
 			screen.refresh()
 		elif x == 119: # w(ebcheck)
 			if 'graphid' in menu['options'][pos]:
@@ -423,6 +432,8 @@ def checkGraphs(hostgroupid, hostgroupname, menu_data):
 					graph_type = "Performance graph"
 				elif menu_data['options'][host]['options'][graph]['selected'] == 't':
 					graph_type = "Trend graph"
+				elif menu_data['options'][host]['options'][graph]['selected'] == 'r':
+					graph_type = "Both performance and trending"
 				elif menu_data['options'][host]['options'][graph]['selected'] == 'w':
 					graph_type = "Web-check graph"
 				if menu_data['options'][host]['options'][graph]['selected'] != '0':

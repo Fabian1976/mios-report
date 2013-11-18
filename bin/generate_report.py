@@ -36,6 +36,7 @@ class Config:
 		self.report_template     = ''
 		self.report_start_date   = ''
 		self.report_period       = ''
+		self.report_trend_start  = ''
 		self.report_trend_period = ''
 		self.report_graph_width  = ''
 		self.report_title        = ''
@@ -154,30 +155,53 @@ class Config:
 					if month+next_month > 12:
 						month -= 12
 						year += 1
-				days_in_month = calendar.monthrange(year, month+next_month)[1]
-				total_seconds = days_in_month * seconds_in_day
+					days_in_month = calendar.monthrange(year, month+next_month)[1]
+					total_seconds += days_in_month * seconds_in_day
 			elif period_items[1] == 'y':
 				if calendar.isleap(year):
 					total_seconds = int(period_items[0]) * 366 * seconds_in_day
 				else:
 					total_seconds = int(period_items[0]) * 365 * seconds_in_day
-			self.report_period = total_seconds - 1
+			self.report_period = total_seconds
 		except:
 			raise
 			# Defaults to 1 week
-			self.report_period = 604800 - 1
+			self.report_period = 604800
 		# Calculate end_date
 		if self.report_start_date != '':
 			# If start_date is given calculate end_date with period
-			self.report_end_date = datetime.date.strftime(datetime.datetime.strptime(self.report_start_date, "%d-%m-%Y") + datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
+			self.report_end_date = datetime.date.strftime(datetime.datetime.strptime(self.report_start_date, "%d-%m-%Y") + datetime.timedelta(seconds=self.report_period-1), '%d-%m-%Y')
 		else:
 			# If no start_date is given, assume today as end_date and calculate the start_date with period
 			self.report_end_date = datetime.date.strftime(datetime.datetime.today(), '%d-%m-%Y')
-			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period), '%d-%m-%Y')
+			self.report_start_date = datetime.date.strftime(datetime.datetime.strptime(self.report_end_date, "%d-%m-%Y") - datetime.timedelta(seconds=self.report_period-1), '%d-%m-%Y')
 
 		try:
 			self.report_trend_period = self.customer_config.get('report', 'trend_period')
+			import re, calendar
+			match = re.match(r"([0-9]+)([a-z]+)", self.report_trend_period, re.I)
+			if match:
+				period_items = match.groups()
+			seconds_in_day = 86400
+			if period_items[1] == 'm':
+				day, month, year = map(int, self.report_start_date.split('-'))
+				month -= int(period_items[0])
+				month += 1
+				if month < 1:
+					month += 12
+					year -= 1
+				total_seconds = 0
+				self.report_trend_start = str(day).zfill(2) + '-' + str(month).zfill(2) + '-' + str(year).zfill(2)
+				for next_month in range(int(period_items[0])):
+					if month+next_month > 12:
+						month -= 12
+						year += 1
+					days_in_month = calendar.monthrange(year, month+next_month)[1]
+					print "Days in month %s: %s" % (month+next_month, days_in_month)
+					total_seconds += days_in_month * seconds_in_day
+			self.report_trend_period = total_seconds
 		except:
+			raise
 			self.report_trend_period = self.report_period
 		try:
 			self.report_graph_width = self.customer_config.get('report', 'graph_width')
@@ -337,7 +361,7 @@ def checkHostgroup(hostgroupid):
 		result = 0
 	return result
 
-def getGraph(graphid):
+def getGraph(graphid, graphtype):
 	import pycurl
 	import StringIO
 	curl = pycurl.Curl()
@@ -352,7 +376,7 @@ def getGraph(graphid):
 	# When we leave the filename of the cookie empty, curl stores the cookie in memory
 	# so now the cookie doesn't have to be removed after usage. When the script finishes, the cookie is also gone
 	z_filename_cookie = ''
-	z_image_name = str(graphid) + '.png'
+	z_image_name = str(graphid) + '_' + graphtype + '.png'
 	# Log on to Zabbix and get session cookie
 	curl.setopt(curl.URL, z_url_index)
 	curl.setopt(curl.POSTFIELDS, z_login_data)
@@ -362,9 +386,14 @@ def getGraph(graphid):
 	# Retrieve graphs using cookie
 	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
 	# You can also give a starttime (&stime=yyyymmddhh24mm). Example: &stime=201310130000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
-	day, month, year = config.report_start_date.split('-')
-	stime = year + month + day + '000000'
-	curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period))
+	if graphtype == 't': #trending graph
+		day, month, year = config.report_trend_start.split('-')
+		stime = year + month + day + '000000'
+		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_trend_period))
+	else: # normal graph
+		day, month, year = config.report_start_date.split('-')
+		stime = year + month + day + '000000'
+		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period))
 	curl.setopt(curl.WRITEFUNCTION, buffer.write)
 	curl.perform()
 	f = open(z_image_name, 'wb')
@@ -528,8 +557,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	for record in graphData:
 		if record['graphtype'] == 'w':
 			print "Generating web-check graph '%s'" % record['graphname']
-			getGraph(record['graphid'])
-			relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+			getGraph(record['graphid'], 'w')
+			relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_w.png', record['graphname'], 450)
 			body.append(picpara)
 			body.append(docx.figureCaption(record['graphname']))
 	hosts = []
@@ -609,8 +638,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			for record in graphData:
 				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
 					print "Generating performance graph '%s' from host '%s'" % (record['graphname'], host)
-					getGraph(record['graphid'])
-					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+					getGraph(record['graphid'], 'p')
+					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 			body.append(docx.pagebreak(type='page', orient='portrait'))
@@ -635,8 +664,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			for record in graphData:
 				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
 					print "Generating trending graph '%s' from host '%s'" % (record['graphname'], host)
-					getGraph(record['graphid'])
-					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '.png', record['graphname'], 450)
+					getGraph(record['graphid'], 't')
+					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 			body.append(docx.pagebreak(type='page', orient='portrait'))
@@ -788,8 +817,7 @@ if  __name__ == "__main__":
 
 	config = Config(config_file, customer_conf_file)
 	config.parse()
-	print config.report_start_date
-	sys.exit(1)
+
 	zapi = ZabbixAPI(server=config.zabbix_frontend,log_level=0)
 
 	try:
