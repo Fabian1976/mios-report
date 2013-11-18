@@ -146,8 +146,13 @@ class Config:
 			elif period_items[1] == 'w':
 				total_seconds = int(period_items[0]) * 7 * seconds_in_day
 			elif period_items[1] == 'm':
-				days_in_month = calendar.monthrange(year, month)[1]
-				total_seconds = int(period_items[0]) * days_in_month * seconds_in_day
+				total_seconds = 0
+				for next_month in range(int(items[0])):
+					if month+next_month > 12:
+						month -= 12
+						year += 1
+				days_in_month = calendar.monthrange(year, month+next_month)[1]
+				total_seconds = days_in_month * seconds_in_day
 			elif period_items[1] == 'y':
 				if calendar.isleap(year):
 					total_seconds = int(period_items[0]) * 366 * seconds_in_day
