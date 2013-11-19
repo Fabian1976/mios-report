@@ -344,7 +344,7 @@ def figureCaption(captiontext, lang='en'):
 	paragraph.append(run8)
 	return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={'all': {'color': 'auto', 'val': 'single', 'space': '0', 'sz': '4'}}, celstyle=None):
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={'all': {'color': 'auto', 'val': 'single', 'space': '0', 'sz': '4'}}, celstyle=None, firstColFillColor='auto'):
 	"""
 	Return a table element based on specified parameters
 
@@ -380,6 +380,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 						  supported keys:
 						  'align' : specify the alignment, see paragraph
 									documentation.
+	@param str  firstColFillColor: Specify a fill color for the first column of the table
 	@return lxml.etree:   Generated XML etree element
 	"""
 	table = makeelement('tbl')
@@ -463,6 +464,9 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 				wattr = {'w': '0', 'type': 'auto'}
 			cellwidth = makeelement('tcW', attributes=wattr)
 			cellprops.append(cellwidth)
+			if i == 0:
+				cellColor = makeelement('shd', attributes={'val': 'clear', 'color': 'auto', 'fill': firstColFillColor})
+				cellprops.append(cellColor)
 			cell.append(cellprops)
 			# Paragraph (Content)
 			if not isinstance(content, (list, tuple)):
