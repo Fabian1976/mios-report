@@ -647,7 +647,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
-			body.append(docx.pagebreak(type='page', orient='portrait'))
+#			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
 	# Trending grafieken
@@ -673,7 +673,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
-			body.append(docx.pagebreak(type='page', orient='portrait'))
+#			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
 	body.append(docx.heading("Advanced performance counters", 2))
@@ -689,7 +689,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	else:
 		backupList = getBackupList(config.report_backup_item)
 		tbl_rows = []
-		tbl_heading = [ 'Start backup', 'Einde backup', 'Duur', 'Status', 'Type' ]
+		tbl_heading = [ 'START BACKUP', 'EINDE BACKUP', 'DUUR', 'STATUS', 'TYPE' ]
 		tbl_rows.append(tbl_heading)
 		for item in backupList:
 			tbl_row = []
