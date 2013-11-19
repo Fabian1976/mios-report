@@ -493,7 +493,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,	pixelhei
 	media_dir = join(template_dir, 'word', 'media')
 	if not os.path.isdir(media_dir):
 		os.mkdir(media_dir)
-	shutil.copyfile(picname, join(media_dir, picname))
+	shutil.copyfile(picname, join(media_dir, os.path.basename(picname)))
 
 	# Check if the user has specified a size
 	if not pixelwidth and not pixelheight:
@@ -514,7 +514,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,	pixelhei
 	# Set relationship ID to the first available
 	picid = '2'
 	picrelid = 'rId'+str(len(relationshiplist)+1)
-	relationshiplist.append([('http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'), 'media/'+picname])
+	relationshiplist.append([('http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'), 'media/'+os.path.basename(picname)])
 
 	# There are 3 main elements inside a picture
 	# 1. The Blipfill - specifies how the image fills the picture area
@@ -528,7 +528,7 @@ def picture(relationshiplist, picname, picdescription, pixelwidth=None,	pixelhei
 
 	# 2. The non visual picture properties
 	nvpicpr = makeelement('nvPicPr', nsprefix='pic')
-	cnvpr = makeelement('cNvPr', nsprefix='pic', attributes={'id': '0', 'name': 'Picture 1', 'descr': picname})
+	cnvpr = makeelement('cNvPr', nsprefix='pic', attributes={'id': '0', 'name': 'Picture 1', 'descr': os.path.basename(picname)})
 	nvpicpr.append(cnvpr)
 	cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
 	cnvpicpr.append(makeelement('picLocks', nsprefix='a', attributes={'noChangeAspect': str(int(nochangeaspect)),	'noChangeArrowheads': str(int(nochangearrowheads))}))

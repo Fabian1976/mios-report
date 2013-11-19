@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.5"
+__version__   = "2.6"
 
 import ConfigParser
 import sys, os
@@ -197,7 +197,6 @@ class Config:
 						month -= 12
 						year += 1
 					days_in_month = calendar.monthrange(year, month+next_month)[1]
-					print "Days in month %s: %s" % (month+next_month, days_in_month)
 					total_seconds += days_in_month * seconds_in_day
 			self.report_trend_period = total_seconds
 		except:
@@ -215,6 +214,10 @@ class Config:
 			self.report_backup_item = self.customer_config.get('report', 'backup_item')
 		except:
 			self.report_backup_item = None
+		try:
+			self.report_infra_picture = self.customer_config.get('report', 'infra_picture')
+		except:
+			self.report_infra_picture = None
 
 class Postgres(object):
 
@@ -474,7 +477,7 @@ def getMaintenancePeriods(hostgroupid):
 	day, month, year = map(int, config.report_start_date.split('-'))
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
-	maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from zabbix.timeperiods\
+	maintenance_rows = postgres.execute(config.postgres_dbname, "select zabbix.maintenances.name || '. ' || zabbix.maintenances.description, start_date, (start_date + period) from zabbix.timeperiods\
 	 inner join zabbix.maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
 	 inner join zabbix.maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
 	 inner join zabbix.maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
@@ -572,15 +575,16 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
 	body.append(docx.heading("Beschikbaarheid business componenten", 2))
 	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business componenten grafisch weergegeven. Business componenten zijn de componenten die samen een business service vormen."))
+	body.append(docx.paragraph("Een overzicht van de omgeving met aanwezige business componenten is beschikbaar in hoofdstuk 7."))
 	for item in uptime_items:
 		body.append(docx.heading(item, 3))
 		for record in itemData:
 			if record['itemname'] == item:
 				print "Generating uptime graph '%s' from item '%s'" % (record['itemname'], item)
 				downtime_periods = getUptimeGraph(record['itemid'])
-				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200)
+				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
 				body.append(picpara)
-				body.append(docx.figureCaption(record['itemname']))
+#				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
 				tbl_heading = [ 'Start downtime', 'Einde downtime', 'Duur' ]
 				tbl_rows.append(tbl_heading)
@@ -597,11 +601,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	body.append(docx.heading("Maintenance-overzicht", 3))
 	maintenance_periods = getMaintenancePeriods(hostgroupid)
 	tbl_rows = []
-	tbl_heading = [ 'Start maintenance', 'Einde maintenance', 'Duur' ]
+	tbl_heading = [ 'Omschrijving', 'Start maintenance', 'Einde maintenance', 'Duur' ]
 	tbl_rows.append(tbl_heading)
 	for num in range(len(maintenance_periods)):
 		tbl_row = []
-		(start_period, end_period) = maintenance_periods[num]
+		(description, start_period, end_period) = maintenance_periods[num]
+		tbl_row.append(description)
 		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
 		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
 		tbl_row.append(hms(end_period - start_period))
@@ -612,14 +617,14 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
 	body.append(docx.heading("Opmerkingen", 3))
-	body.append(docx.pagebreak(type='page', orient='portrait'))
+#	body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	# Performance grafieken
 	body.append(docx.heading("Basic performance counters", 2))
 	body.append(docx.paragraph('De grafieken in dit hoofdstuk zijn grafische weergaves van "basic performance counters". '
 	 'Deze counters zeggen niets over de prestaties van een applicatie of platform, maar geven aan of componenten uit de infrastructuur op de top van hun kunnen, of wellicht eroverheen worden geduwd. '
-	 'De basic performance counters worden per (relevante) server gerapporteerd, over de afgelopen maand. Over het algemeen worden deze counters gemeten op OS-niveau:'))
-	points = [	'CPU-load: geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + aktieve processen op de CPU;',
+	 'De basic performance counters worden per (relevante) server gerapporteerd over de afgelopen maand. Over het algemeen worden deze counters gemeten op OS-niveau:'))
+	points = [	'CPU-load: geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + actieve processen op de CPU;',
 			'CPU utilization: dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, onderverdeeld naar type CPU-gebruik;',
 			'Memory utilization: dit getal geeft aan hoeveel memory er op de server in gebruik is, onderverdeeld naar type memory-gebruik;',
 			'Disk stats: geeft latency aan van relevante disken;',
@@ -647,13 +652,13 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	body.append(docx.heading("Opmerkingen", 3))
 	# Trending grafieken
 	body.append(docx.heading("Trending", 2))
-	body.append(docx.paragraph('Uitleg over termijn (6-maandelijks etc.)...Alleen relevante counters....:'))
-	points = [	'CPU-load (minimaal 6 maanden)',
-			'Counters die tegen limiet aan gaan komen',
-			'Disk-bezetting',
-			'IOPS']
-	for point in points:
-		body.append(docx.paragraph(point, style='ListBulleted'))
+	body.append(docx.paragraph('De volgende paragrafen laten trending-grafieken zien. Deze grafieken zijn gemaakt op basis van een selectie van basic performance counters, en beslaan een periode van minimaal 6 maanden, of sinds de "go-live" van de infrastructuur/business service. Met behulp van de grafieken en strategische planningen moeten voorspellingen kunnen worden gedaan over de toekomstig beschikbare capaciteit van infrastructuur-componenten. Eventuele (kritieke) grenswaarden zijn met een rode lijn aangegeven.'))
+#	points = [	'CPU-load (minimaal 6 maanden)',
+#			'Counters die tegen limiet aan gaan komen',
+#			'Disk-bezetting',
+#			'IOPS']
+#	for point in points:
+#		body.append(docx.paragraph(point, style='ListBulleted'))
 	for host in hosts:
 		host_has_graphs = 0
 		for record in graphData:
@@ -671,14 +676,13 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
-	# Check of er advanced performance counters zijn.
-	# Zo ja, maak hoofdstuk "ADVANCED PERFORMANCE COUNTERS" aan
-	# todo
+	body.append(docx.heading("Advanced performance counters", 2))
+	body.append(docx.paragraph('Er zijn geen overzichten van advanced performance counters in het overzicht opgenomen. Advanced performance counters zijn wel zichtbaar in de beschikbaar gestelde dashboards (screens) in de monitoring-portal (https://mios.vermont24-7.com).'))
 	print "\nDone generating graphs..."
 
 	# Backup overzicht
 	body.append(docx.heading("Backup overzicht", 2))
-	body.append(docx.paragraph('Blabla-uitleg en zo.'))
+	body.append(docx.paragraph('Onderstaande tabel geeft een overzicht van de backupstatussen van de Promedico database-backup. Deze backup wordt middels Oracle RMAN uitgevoerd en naar een door AZV beschikbaar gestelde NFS-disk geschreven. De RMAN-backups, evenals de backups van de virtual machines, worden verder door AZV uitgevoerd. Er is voor Vermont geen inzicht in deze backups, deze kunnen vooralsnog dan ook niet worden gerapporteerd.'))
 	body.append(docx.heading("Overzicht", 3))
 	if not config.report_backup_item:
 		body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
@@ -701,6 +705,15 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		body.append(docx.table(tbl_rows))
 		body.append(docx.heading("Opmerkingen", 3))
 
+	body.append(docx.heading("Ticket-overzicht", 1))
+	body.append(docx.paragraph("Er wordt geen gebruik gemaakt van het Vermont ticket-systeem, in overleg is besloten Promedico's centrale ticket-systeem te gebruiken. Rapportages kunnen niet door Vermont worden verstrekt."))
+	body.append(docx.heading("Aktiepunten", 1))
+	body.append(docx.heading("Definities/afkortingen", 1))
+	body.append(docx.heading("Omgevingsoverzicht", 1))
+	if config.report_infra_picture:
+		relationships, picpara = docx.picture(relationships, '/opt/mios/mios-report/templates/' + config.report_infra_picture, config.report_infra_picture.split('.')[0].replace('_', ' '), 450)
+		body.append(picpara)
+		body.append(docx.figureCaption(config.report_infra_picture.split('.')[0].replace('_', ' ')))
 	print "\nStart generating report"
 	title = config.report_title
 	subject = 'Performance en trending rapportage'
@@ -725,7 +738,6 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		sendReport(config.report_name, hostgroupname)
 	else:
 		print "No email receiver specified. Report will not be sent by email."
-#	cleanup()
 
 def hms(seconds):
 	minutes, seconds = divmod(seconds, 60)
