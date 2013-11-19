@@ -197,7 +197,6 @@ class Config:
 						month -= 12
 						year += 1
 					days_in_month = calendar.monthrange(year, month+next_month)[1]
-					print "Days in month %s: %s" % (month+next_month, days_in_month)
 					total_seconds += days_in_month * seconds_in_day
 			self.report_trend_period = total_seconds
 		except:
