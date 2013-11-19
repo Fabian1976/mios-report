@@ -586,7 +586,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				body.append(picpara)
 #				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
-				tbl_heading = [ 'Start downtime', 'Einde downtime', 'Duur' ]
+				tbl_heading = [ 'START DOWNTIME', 'EINDE DOWNTIME', 'DUUR' ]
 				tbl_rows.append(tbl_heading)
 				for num in range(len(downtime_periods)):
 					tbl_row = []
@@ -601,7 +601,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	body.append(docx.heading("Maintenance-overzicht", 3))
 	maintenance_periods = getMaintenancePeriods(hostgroupid)
 	tbl_rows = []
-	tbl_heading = [ 'Omschrijving', 'Start maintenance', 'Einde maintenance', 'Duur' ]
+	tbl_heading = [ 'OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR' ]
 	tbl_rows.append(tbl_heading)
 	for num in range(len(maintenance_periods)):
 		tbl_row = []
