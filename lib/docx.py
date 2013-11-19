@@ -153,7 +153,7 @@ def pagebreak(type='page', orient='portrait'):
 		pagebreak.append(pPr)
 	return pagebreak
 
-def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
+def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='auto'):
 	"""
 	Return a new paragraph element containing *paratext*. The paragraph's
 	default style is 'Body Text', but a new style may be set using the
@@ -209,6 +209,8 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
 		if 'u' in char_styles_str:
 			u = makeelement('u', attributes={'val': 'single'})
 			rPr.append(u)
+		rPrColor = makeelement('color', attributes={'val' : color})
+		rPr.append(rPrColor)
 		run.append(rPr)
 		# Insert lastRenderedPageBreak for assistive technologies like
 		# document narrators to know when a page break occurred.
@@ -342,7 +344,7 @@ def figureCaption(captiontext, lang='en'):
 	paragraph.append(run8)
 	return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={'all': {'color': 'auto', 'val': 'single', 'space': '0', 'sz': '4'}}, celstyle=None):
 	"""
 	Return a table element based on specified parameters
 
@@ -426,10 +428,13 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 				wattr = {'w': '0', 'type': 'auto'}
 			cellwidth = makeelement('tcW', attributes=wattr)
 			cellstyle = makeelement('shd', attributes={'val': 'clear',
-								   'color': 'auto',
-								   'fill': 'FFFFFF',
-								   'themeFill': 'text2',
-								   'themeFillTint': '99'})
+#								   'color': 'auto',
+								   'color': 'FFFFFF',
+#								   'fill': 'FFFFFF',
+								   'fill': 'ABDDFF'
+#								   'themeFill': 'text2',
+#								   'themeFillTint': '99'
+								   })
 			cellprops.append(cellwidth)
 			cellprops.append(cellstyle)
 			cell.append(cellprops)
@@ -440,7 +445,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 				if isinstance(h, etree._Element):
 					cell.append(h)
 				else:
-					cell.append(paragraph(h, jc='center'))
+					cell.append(paragraph(h, jc='left', color='FFFFFF'))
 			row.append(cell)
 			i += 1
 		table.append(row)
