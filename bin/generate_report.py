@@ -617,7 +617,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
 	body.append(docx.heading("Opmerkingen", 3))
-#	body.append(docx.pagebreak(type='page', orient='portrait'))
+	tbl_rows = []
+	tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+	tbl_rows.append(tbl_heading)
+	tbl_rows.append(['',''])
+	body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
 
 	# Performance grafieken
 	body.append(docx.heading("Basic performance counters", 2))
@@ -650,6 +654,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 #			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
+	tbl_rows = []
+	tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+	tbl_rows.append(tbl_heading)
+	tbl_rows.append(['',''])
+	body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
+
 	# Trending grafieken
 	body.append(docx.heading("Trending", 2))
 	body.append(docx.paragraph('De volgende paragrafen laten trending-grafieken zien. Deze grafieken zijn gemaakt op basis van een selectie van basic performance counters, en beslaan een periode van minimaal 6 maanden, of sinds de "go-live" van de infrastructuur/business service. Met behulp van de grafieken en strategische planningen moeten voorspellingen kunnen worden gedaan over de toekomstig beschikbare capaciteit van infrastructuur-componenten. Eventuele (kritieke) grenswaarden zijn met een rode lijn aangegeven.'))
@@ -676,6 +686,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 #			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
+	tbl_rows = []
+	tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+	tbl_rows.append(tbl_heading)
+	tbl_rows.append(['',''])
+	body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
+
 	body.append(docx.heading("Advanced performance counters", 2))
 	body.append(docx.paragraph('Er zijn geen overzichten van advanced performance counters in het overzicht opgenomen. Advanced performance counters zijn wel zichtbaar in de beschikbaar gestelde dashboards (screens) in de monitoring-portal (https://mios.vermont24-7.com).'))
 	print "\nDone generating graphs..."
@@ -704,6 +720,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			tbl_rows.append(tbl_row)
 		body.append(docx.table(tbl_rows))
 		body.append(docx.heading("Opmerkingen", 3))
+		tbl_rows = []
+		tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+		tbl_rows.append(tbl_heading)
+		tbl_rows.append(['',''])
+		body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
 
 	body.append(docx.heading("Ticket-overzicht", 1))
 	body.append(docx.paragraph("Er wordt geen gebruik gemaakt van het Vermont ticket-systeem, in overleg is besloten Promedico's centrale ticket-systeem te gebruiken. Rapportages kunnen niet door Vermont worden verstrekt."))
