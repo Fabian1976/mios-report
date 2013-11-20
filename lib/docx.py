@@ -153,7 +153,11 @@ def pagebreak(type='page', orient='portrait'):
 		pagebreak.append(pPr)
 	return pagebreak
 
-def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
+def linebreak():
+	br = makeelement('br')
+	return br
+
+def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='auto', size=None, ind=None):
 	"""
 	Return a new paragraph element containing *paratext*. The paragraph's
 	default style is 'Body Text', but a new style may be set using the
@@ -193,7 +197,9 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
 	pJc = makeelement('jc', attributes={'val': jc})
 	pPr.append(pStyle)
 	pPr.append(pJc)
-
+	if ind:
+		pPrInd = makeelement('ind', attributes={'left': str(ind)})
+		pPr.append(pPrInd)
 	# Add the text to the run, and the run to the paragraph
 	paragraph.append(pPr)
 	for text_elm, char_styles_str in text_tuples:
@@ -209,6 +215,11 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left'):
 		if 'u' in char_styles_str:
 			u = makeelement('u', attributes={'val': 'single'})
 			rPr.append(u)
+		rPrColor = makeelement('color', attributes={'val' : color})
+		if size:
+			rPrSize = makeelement('sz', attributes={'val' : str(int(size)*2)}) # times 2 because oxml uses half points
+			rPr.append(rPrSize)
+		rPr.append(rPrColor)
 		run.append(rPr)
 		# Insert lastRenderedPageBreak for assistive technologies like
 		# document narrators to know when a page break occurred.
@@ -342,7 +353,7 @@ def figureCaption(captiontext, lang='en'):
 	paragraph.append(run8)
 	return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={}, celstyle=None):
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={'all': {'color': 'auto', 'val': 'single', 'space': '0', 'sz': '4'}}, celstyle=None, firstColFillColor='auto'):
 	"""
 	Return a table element based on specified parameters
 
@@ -378,6 +389,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 						  supported keys:
 						  'align' : specify the alignment, see paragraph
 									documentation.
+	@param str  firstColFillColor: Specify a fill color for the first column of the table
 	@return lxml.etree:   Generated XML etree element
 	"""
 	table = makeelement('tbl')
@@ -426,10 +438,13 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 				wattr = {'w': '0', 'type': 'auto'}
 			cellwidth = makeelement('tcW', attributes=wattr)
 			cellstyle = makeelement('shd', attributes={'val': 'clear',
-								   'color': 'auto',
-								   'fill': 'FFFFFF',
-								   'themeFill': 'text2',
-								   'themeFillTint': '99'})
+#								   'color': 'auto',
+								   'color': 'FFFFFF',
+#								   'fill': 'FFFFFF',
+								   'fill': 'ABDDFF'
+#								   'themeFill': 'text2',
+#								   'themeFillTint': '99'
+								   })
 			cellprops.append(cellwidth)
 			cellprops.append(cellstyle)
 			cell.append(cellprops)
@@ -440,7 +455,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 				if isinstance(h, etree._Element):
 					cell.append(h)
 				else:
-					cell.append(paragraph(h, jc='center'))
+					cell.append(paragraph(h, jc='left', color='FFFFFF'))
 			row.append(cell)
 			i += 1
 		table.append(row)
@@ -458,6 +473,9 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 				wattr = {'w': '0', 'type': 'auto'}
 			cellwidth = makeelement('tcW', attributes=wattr)
 			cellprops.append(cellwidth)
+			if i == 0:
+				cellColor = makeelement('shd', attributes={'val': 'clear', 'color': 'auto', 'fill': firstColFillColor})
+				cellprops.append(cellColor)
 			cell.append(cellprops)
 			# Paragraph (Content)
 			if not isinstance(content, (list, tuple)):

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.6"
+__version__   = "2.7"
 
 import ConfigParser
 import sys, os
@@ -586,7 +586,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				body.append(picpara)
 #				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
-				tbl_heading = [ 'Start downtime', 'Einde downtime', 'Duur' ]
+				tbl_heading = [ 'START DOWNTIME', 'EINDE DOWNTIME', 'DUUR' ]
 				tbl_rows.append(tbl_heading)
 				for num in range(len(downtime_periods)):
 					tbl_row = []
@@ -601,7 +601,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	body.append(docx.heading("Maintenance-overzicht", 3))
 	maintenance_periods = getMaintenancePeriods(hostgroupid)
 	tbl_rows = []
-	tbl_heading = [ 'Omschrijving', 'Start maintenance', 'Einde maintenance', 'Duur' ]
+	tbl_heading = [ 'OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR' ]
 	tbl_rows.append(tbl_heading)
 	for num in range(len(maintenance_periods)):
 		tbl_row = []
@@ -617,7 +617,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
 	body.append(docx.heading("Opmerkingen", 3))
-#	body.append(docx.pagebreak(type='page', orient='portrait'))
+	tbl_rows = []
+	tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+	tbl_rows.append(tbl_heading)
+	tbl_rows.append(['',''])
+	body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
 
 	# Performance grafieken
 	body.append(docx.heading("Basic performance counters", 2))
@@ -647,9 +651,15 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
-			body.append(docx.pagebreak(type='page', orient='portrait'))
+#			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
+	tbl_rows = []
+	tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+	tbl_rows.append(tbl_heading)
+	tbl_rows.append(['',''])
+	body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
+
 	# Trending grafieken
 	body.append(docx.heading("Trending", 2))
 	body.append(docx.paragraph('De volgende paragrafen laten trending-grafieken zien. Deze grafieken zijn gemaakt op basis van een selectie van basic performance counters, en beslaan een periode van minimaal 6 maanden, of sinds de "go-live" van de infrastructuur/business service. Met behulp van de grafieken en strategische planningen moeten voorspellingen kunnen worden gedaan over de toekomstig beschikbare capaciteit van infrastructuur-componenten. Eventuele (kritieke) grenswaarden zijn met een rode lijn aangegeven.'))
@@ -673,9 +683,15 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
-			body.append(docx.pagebreak(type='page', orient='portrait'))
+#			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
+	tbl_rows = []
+	tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+	tbl_rows.append(tbl_heading)
+	tbl_rows.append(['',''])
+	body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
+
 	body.append(docx.heading("Advanced performance counters", 2))
 	body.append(docx.paragraph('Er zijn geen overzichten van advanced performance counters in het overzicht opgenomen. Advanced performance counters zijn wel zichtbaar in de beschikbaar gestelde dashboards (screens) in de monitoring-portal (https://mios.vermont24-7.com).'))
 	print "\nDone generating graphs..."
@@ -689,7 +705,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	else:
 		backupList = getBackupList(config.report_backup_item)
 		tbl_rows = []
-		tbl_heading = [ 'Start backup', 'Einde backup', 'Duur', 'Status', 'Type' ]
+		tbl_heading = [ 'START BACKUP', 'EINDE BACKUP', 'DUUR', 'STATUS', 'TYPE' ]
 		tbl_rows.append(tbl_heading)
 		for item in backupList:
 			tbl_row = []
@@ -704,11 +720,39 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			tbl_rows.append(tbl_row)
 		body.append(docx.table(tbl_rows))
 		body.append(docx.heading("Opmerkingen", 3))
+		tbl_rows = []
+		tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+		tbl_rows.append(tbl_heading)
+		tbl_rows.append(['',''])
+		body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
 
 	body.append(docx.heading("Ticket-overzicht", 1))
 	body.append(docx.paragraph("Er wordt geen gebruik gemaakt van het Vermont ticket-systeem, in overleg is besloten Promedico's centrale ticket-systeem te gebruiken. Rapportages kunnen niet door Vermont worden verstrekt."))
+
 	body.append(docx.heading("Aktiepunten", 1))
+
 	body.append(docx.heading("Definities/afkortingen", 1))
+	tbl_rows = []
+	tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+	tbl_rows.append(tbl_heading)
+	row1_col1 = docx.paragraph([("Business Services", "b")], size=8)
+	row1_col2_par1 = docx.paragraph("Business services worden gezien als de services die toegang verschaffen tot business logica., zoals een (web-)applicatie of website, of componenten die daar rechtstreeks aan gerelateerd zijn, zoals een webservice, een batch-service, een mail-service etc.", size=8)
+	row1_col2_par2 = docx.paragraph("Er is bewust sprake van services, en niet van servers, omdat servers ondergeschikt zijn aan services. De beschikbaarheid van deze services wordt functioneel gemeten, wat betekent dat een onbeschikbaarheid van 1 van de onderliggende redundante componenten (zoals servers) niet zichtbaar hoeft te zijn als de service daar niet negatief door wordt beinvloed.", size=8)
+	tbl_rows.append([row1_col1,[row1_col2_par1, row1_col2_par2]])
+
+	row2_col1 = docx.paragraph([("CPU-load", "b")], size=8)
+	row2_col2_par1 = docx.paragraph('geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + aktieve processen op de CPU. Wanneer dit getal de hoeveelheid beschikbare CPU.s (cores) regelmatig overschrijdt, kan de server-capaciteit te laag zijn, en draait de machine inefficient. Een server welke dient om een hoge concurrency te kunnen verwerken, dient derhalve voldoende overhead te hebben. Een server die bijvoorbeeld gedurende een X tijd batches verwerkt, moet juist zo veel en efficient mogelijk CPU-resources gebruiken, wat betekent dat load-averages daar hoog mogen zijn, maar liefst niet boven het aantal beschikbare CPU.s. Het getal kan echter naast een indicatie van een te hoge load ook aangeven dat de machine op andere resources tekort komt, bijvoorbeeld wachten op disk-IO;', size=8)
+	row2_col2_par2 = docx.paragraph('In de grafiek zijn een drietal gemiddelden opgenomen:', size=8)
+	row2_col2_par3 = docx.paragraph('1 min average: gemiddelde gemeten per minuut. Deze waarden komen over het algemeen hoger uit dan de andere twee gemiddelden;', size=8, ind=720)
+	row2_col2_par4 = docx.paragraph('5 min average: gemiddelde gemeten over 5 minuten. Wanneer deze waarden bij een lange meting gelijk of in de buurt liggen van voorgaand gemiddelde, is er reden aan te nemen dat op dat tijdstip de load enige tijd heeft aangehouden. Dit kan zijn door langlopende processen, of door een veelvoud aan .piek-procesjes. (hoge concurrency) en gebruikersgedrag welke redelijk constant zijn verlopen over de langere tijd. Bij een korte meting (zoals bij live meekijken in dashboards) gelden iets andere interpretatie-regels, en zullen in de praktijk de waarden tussen de verschillende gemiddelden verder uit elkaar liggen;', size=8, ind=720)
+	row2_col2_par5 = docx.paragraph('15 min average: gemiddelde gemeten over 15 minuten. Hiervoor geldt hetzelfde als in voorgaand punt;', size=8, ind=720)
+	tbl_rows.append([row2_col1, [row2_col2_par1, row2_col2_par2, row2_col2_par3, row2_col2_par4, row2_col2_par5]])
+
+	row3_col1 = docx.paragraph([("CPU utilization", "b")], size=8)
+	row3_col2 = docx.paragraph("dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, en door welk type CPU-gebruik.", size=8)
+	tbl_rows.append([row3_col1, row3_col2])
+	body.append(docx.table(tbl_rows, colw=[1648,7529], firstColFillColor='E3F3B7'))
+
 	body.append(docx.heading("Omgevingsoverzicht", 1))
 	if config.report_infra_picture:
 		relationships, picpara = docx.picture(relationships, '/opt/mios/mios-report/templates/' + config.report_infra_picture, config.report_infra_picture.split('.')[0].replace('_', ' '), 450)
