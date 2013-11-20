@@ -153,7 +153,7 @@ def pagebreak(type='page', orient='portrait'):
 		pagebreak.append(pPr)
 	return pagebreak
 
-def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='auto'):
+def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='auto', size=None):
 	"""
 	Return a new paragraph element containing *paratext*. The paragraph's
 	default style is 'Body Text', but a new style may be set using the
@@ -210,6 +210,9 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='a
 			u = makeelement('u', attributes={'val': 'single'})
 			rPr.append(u)
 		rPrColor = makeelement('color', attributes={'val' : color})
+		if size:
+			rPrSize = makeelement('sz', attributes={'val' : str(int(size)*2)}) # times 2 because oxml uses half points
+			rPr.append(rPrSize)
 		rPr.append(rPrColor)
 		run.append(rPr)
 		# Insert lastRenderedPageBreak for assistive technologies like
