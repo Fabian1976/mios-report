@@ -153,7 +153,11 @@ def pagebreak(type='page', orient='portrait'):
 		pagebreak.append(pPr)
 	return pagebreak
 
-def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='auto', size=None):
+def linebreak():
+	br = makeelement('br')
+	return br
+
+def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='auto', size=None, ind=None):
 	"""
 	Return a new paragraph element containing *paratext*. The paragraph's
 	default style is 'Body Text', but a new style may be set using the
@@ -193,7 +197,9 @@ def paragraph(paratext, style='BodyText', breakbefore=False, jc='left', color='a
 	pJc = makeelement('jc', attributes={'val': jc})
 	pPr.append(pStyle)
 	pPr.append(pJc)
-
+	if ind:
+		pPrInd = makeelement('ind', attributes={'left': str(ind)})
+		pPr.append(pPrInd)
 	# Add the text to the run, and the run to the paragraph
 	paragraph.append(pPr)
 	for text_elm, char_styles_str in text_tuples:
