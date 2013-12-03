@@ -433,8 +433,11 @@ def getUptimeGraph(itemid):
 				polling_down.remove(clock)
 
 	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
-	# Get history values which have no data for longer then the interval times 5
-	interval_threshold = int(item_interval) * 5
+	# Get history values which have no data for longer then the interval and at least 5 minutes (Zabbix internal interval)
+	if item_interval < 300:
+		interval_threshold = 300
+	else:
+		interval_threshold = (item_interval * 2) + 10
 	rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
 	 (\
 	  select clock, clock - lag(clock) over (order by clock) as difference from history_uint\
@@ -471,7 +474,6 @@ def getUptimeGraph(itemid):
 	uptime_graph.save(str(itemid) + '.png')
 
 	# Generate table overview of down time (get consecutive down periods)
-#	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
 	item_interval *=2 #Double interval. Interval is never exact. Allways has a deviation of 1 or 2 seconds. So we double the interval just to be safe
 	downtime_periods = []
 	if len(polling_down_rows) > 0:
