@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.7"
+__version__   = "2.8"
 
 import ConfigParser
 import sys, os
@@ -408,19 +408,19 @@ def getUptimeGraph(itemid):
 
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
-	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from zabbix.history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
-	rows = postgres.execute(config.postgres_dbname, "select clock from zabbix.history_uint where itemid = %s and clock > %s and clock < %s and value = 0 order by clock" % (itemid, start_epoch, end_epoch))
+	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
+	rows = postgres.execute(config.postgres_dbname, "select clock from history_uint where itemid = %s and clock > %s and clock < %s and value = 0 order by clock" % (itemid, start_epoch, end_epoch))
 	polling_down_rows = []
 	for row in rows:
 		polling_down_rows.append(row[0])
-	item_maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from zabbix.timeperiods\
-	 inner join zabbix.maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
-	 inner join zabbix.maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
-	 inner join zabbix.maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
-	 inner join zabbix.groups on maintenances_groups.groupid = groups.groupid\
-	 inner join zabbix.hosts_groups on hosts_groups.groupid = groups.groupid\
-	 inner join zabbix.hosts on hosts_groups.hostid = hosts.hostid\
-	 inner join zabbix.items on items.hostid = hosts.hostid\
+	item_maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from timeperiods\
+	 inner join maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
+	 inner join maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
+	 inner join maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
+	 inner join groups on maintenances_groups.groupid = groups.groupid\
+	 inner join hosts_groups on hosts_groups.groupid = groups.groupid\
+	 inner join hosts on hosts_groups.hostid = hosts.hostid\
+	 inner join items on items.hostid = hosts.hostid\
 	 where items.itemid = %s and timeperiods.start_date between %s and %s" % (itemid, start_epoch, end_epoch))
 	polling_down_maintenance = []
 	polling_down = list(polling_down_rows) # Make copy of list so that it can be edited without affecting original list (mutable), same as polling_down_rows[:]
@@ -432,6 +432,24 @@ def getUptimeGraph(itemid):
 				polling_down_maintenance.append(clock)
 				polling_down.remove(clock)
 
+	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
+	# Get history values which have no data for longer then the interval times 5
+	interval_threshold = int(item_interval) * 5
+	rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
+	 (\
+	  select clock, clock - lag(clock) over (order by clock) as difference from history_uint\
+	  where itemid = %s and clock between %s and %s\
+	 ) t\
+	 where difference > %s" % (itemid, start_epoch, end_epoch, interval_threshold))
+	item_nodata_rows = []
+	num_pollings_nodata = 0
+	for row in rows:
+		end_date_nodata = row[0]
+		seconds_nodata = row[1]
+		num_pollings_nodata += (seconds_nodata / item_interval)
+		start_date_nodata = end_date_nodata - seconds_nodata
+		item_nodata_rows.append((start_date_nodata, end_date_nodata))
+	print "Polling items with nodata                : %s" % num_pollings_nodata
 	print "Polling items down and in maintenance    : %s" % len(polling_down_maintenance)
 	print "Polling items down and NOT in maintenance: %s" % len(polling_down)
 	print "Polling items UP                         : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down))
@@ -440,7 +458,7 @@ def getUptimeGraph(itemid):
 	print "Period in seconds: ", config.report_period
 
 	percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
-	percentage_down = (float(len(polling_down)) / float(polling_total)) * 100
+	percentage_down = (float(len(polling_down)+num_pollings_nodata) / float(polling_total)) * 100
 	percentage_up = 100 - (percentage_down + percentage_down_maintenance)
 	print "Percentage down and in maintenanve during period    : ", percentage_down_maintenance
 	print "Percentage down and NOT in maintenance during period: ", percentage_down
@@ -453,14 +471,15 @@ def getUptimeGraph(itemid):
 	uptime_graph.save(str(itemid) + '.png')
 
 	# Generate table overview of down time (get consecutive down periods)
-	item_interval = postgres.execute(config.postgres_dbname, "select delay from zabbix.items where itemid = %s" % itemid)[0][0]
+#	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
 	item_interval *=2 #Double interval. Interval is never exact. Allways has a deviation of 1 or 2 seconds. So we double the interval just to be safe
 	downtime_periods = []
 	if len(polling_down_rows) > 0:
 		for num in range(len(polling_down_rows)):
 			if num == 0:
 				start_period = polling_down_rows[num]
-				prev_clock = polling_down_rows[num]
+				prev_clock = start_period
+				end_period = start_period + item_interval
 			else:
 				if polling_down_rows[num] <= prev_clock + item_interval:
 					# Consecutive down time
@@ -471,17 +490,20 @@ def getUptimeGraph(itemid):
 					start_period = polling_down_rows[num]
 					prev_clock = polling_down_rows[num]
 		downtime_periods.append((start_period, end_period))
+	# Append nodata rows to downtime_periods
+	for nodata_rows in item_nodata_rows:
+		downtime_periods.append(nodata_rows)
 	return downtime_periods
 		
 def getMaintenancePeriods(hostgroupid):
 	day, month, year = map(int, config.report_start_date.split('-'))
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
-	maintenance_rows = postgres.execute(config.postgres_dbname, "select zabbix.maintenances.name || '. ' || zabbix.maintenances.description, start_date, (start_date + period) from zabbix.timeperiods\
-	 inner join zabbix.maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
-	 inner join zabbix.maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
-	 inner join zabbix.maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
-	 inner join zabbix.groups on maintenances_groups.groupid = groups.groupid\
+	maintenance_rows = postgres.execute(config.postgres_dbname, "select maintenances.name || '. ' || maintenances.description, start_date, (start_date + period) from timeperiods\
+	 inner join maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
+	 inner join maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
+	 inner join maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
+	 inner join groups on maintenances_groups.groupid = groups.groupid\
 	 where groups.groupid = %s and timeperiods.start_date between %s and %s" %(hostgroupid, start_epoch, end_epoch))
 	return maintenance_rows
 
@@ -497,7 +519,7 @@ def getBackupList(itemid):
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
 
-#	backupList = postgres.execute(config.postgres_dbname, "select value from zabbix.history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
+#	backupList = postgres.execute(config.postgres_dbname, "select value from history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
 	backupList = [['15-11-2013 00:59:03;15-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL'] ,['14-11-2013 00:59:03;14-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL']]
 	return backupList
 
