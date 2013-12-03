@@ -432,6 +432,24 @@ def getUptimeGraph(itemid):
 				polling_down_maintenance.append(clock)
 				polling_down.remove(clock)
 
+	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
+	# Get history values which have no data for longer then the interval times 5
+	interval_threshold = int(item_interval) * 5
+	rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
+	 (\
+	  select clock, clock - lag(clock) over (order by clock) as difference from history_uint\
+	  where itemid = %s and clock between %s and %s\
+	 ) t\
+	 where difference > %s" % (itemid, start_epoch, end_epoch, interval_threshold))
+	item_nodata_rows = []
+	num_pollings_nodata = 0
+	for row in rows:
+		end_date_nodata = row[0]
+		seconds_nodata = row[1]
+		num_pollings_nodata += (seconds_nodata / item_interval)
+		start_date_nodata = end_date_nodata - seconds_nodata
+		item_nodata_rows.append((start_date_nodata, end_date_nodata))
+	print "Polling items with nodata                : %s" % num_pollings_nodata
 	print "Polling items down and in maintenance    : %s" % len(polling_down_maintenance)
 	print "Polling items down and NOT in maintenance: %s" % len(polling_down)
 	print "Polling items UP                         : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down))
@@ -440,7 +458,7 @@ def getUptimeGraph(itemid):
 	print "Period in seconds: ", config.report_period
 
 	percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
-	percentage_down = (float(len(polling_down)) / float(polling_total)) * 100
+	percentage_down = (float(len(polling_down)+num_pollings_nodata) / float(polling_total)) * 100
 	percentage_up = 100 - (percentage_down + percentage_down_maintenance)
 	print "Percentage down and in maintenanve during period    : ", percentage_down_maintenance
 	print "Percentage down and NOT in maintenance during period: ", percentage_down
@@ -453,14 +471,15 @@ def getUptimeGraph(itemid):
 	uptime_graph.save(str(itemid) + '.png')
 
 	# Generate table overview of down time (get consecutive down periods)
-	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
+#	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
 	item_interval *=2 #Double interval. Interval is never exact. Allways has a deviation of 1 or 2 seconds. So we double the interval just to be safe
 	downtime_periods = []
 	if len(polling_down_rows) > 0:
 		for num in range(len(polling_down_rows)):
 			if num == 0:
 				start_period = polling_down_rows[num]
-				prev_clock = polling_down_rows[num]
+				prev_clock = start_period
+				end_period = start_period + item_interval
 			else:
 				if polling_down_rows[num] <= prev_clock + item_interval:
 					# Consecutive down time
@@ -471,6 +490,9 @@ def getUptimeGraph(itemid):
 					start_period = polling_down_rows[num]
 					prev_clock = polling_down_rows[num]
 		downtime_periods.append((start_period, end_period))
+	# Append nodata rows to downtime_periods
+	for nodata_rows in item_nodata_rows:
+		downtime_periods.append(nodata_rows)
 	return downtime_periods
 		
 def getMaintenancePeriods(hostgroupid):
