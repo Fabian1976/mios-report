@@ -577,6 +577,36 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		document = docx.opendocx(existing_report, mreport_home + '/tmp')
 	relationships = docx.relationshiplist(existing_report, mreport_home + '/tmp')
 	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
+	#Samenvatting toevoegen met maintenance overzicht in opmerkingen
+	body.append(docx.heading("Samenvatting", 1))
+	body.append(docx.heading("Opmerkingen", 2))
+	# Maintenance tabel
+	maintenance_periods = getMaintenancePeriods(hostgroupid)
+	maintenance_tbl_rows = []
+	tbl_heading = [ 'OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR' ]
+	maintenance_tbl_rows.append(tbl_heading)
+	for num in range(len(maintenance_periods)):
+		tbl_row = []
+		(description, start_period, end_period) = maintenance_periods[num]
+		tbl_row.append(description)
+		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(hms(end_period - start_period))
+		maintenance_tbl_rows.append(tbl_row)
+	if len(maintenance_periods) > 0:
+		body.append(docx.table(maintenance_tbl_rows))
+	else:
+		#Aanpassen in lege tabel. Niet de tekst die er nu staat!
+#		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
+		tbl_rows = []
+		tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+		tbl_rows.append(tbl_heading)
+		tbl_rows.append(['',''])
+		body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
+
+
+	body.append(docx.heading("Aktiepunten", 2))
+
 	body.append(docx.heading("MIOS monitoring", 1))
 	body.append(docx.heading("Beschikbaarheid business services", 2))
 	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business services grafisch weergegeven. Business services worden gezien als de services die toegang verschaffen tot core-functionaliteit."))
@@ -623,20 +653,21 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 					body.append(docx.table(tbl_rows))
 	# Maintenance periodes
 	body.append(docx.heading("Maintenance-overzicht", 3))
-	maintenance_periods = getMaintenancePeriods(hostgroupid)
-	tbl_rows = []
-	tbl_heading = [ 'OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR' ]
-	tbl_rows.append(tbl_heading)
-	for num in range(len(maintenance_periods)):
-		tbl_row = []
-		(description, start_period, end_period) = maintenance_periods[num]
-		tbl_row.append(description)
-		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
-		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
-		tbl_row.append(hms(end_period - start_period))
-		tbl_rows.append(tbl_row)
+	# De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
+#	maintenance_periods = getMaintenancePeriods(hostgroupid)
+#	tbl_rows = []
+#	tbl_heading = [ 'OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR' ]
+#	tbl_rows.append(tbl_heading)
+#	for num in range(len(maintenance_periods)):
+#		tbl_row = []
+#		(description, start_period, end_period) = maintenance_periods[num]
+#		tbl_row.append(description)
+#		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+#		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+#		tbl_row.append(hms(end_period - start_period))
+#		tbl_rows.append(tbl_row)
 	if len(maintenance_periods) > 0:
-		body.append(docx.table(tbl_rows))
+		body.append(docx.table(maintenance_tbl_rows))
 	else:
 		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
