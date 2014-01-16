@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.8"
+__version__   = "2.9"
 
 import ConfigParser
 import sys, os
@@ -433,8 +433,11 @@ def getUptimeGraph(itemid):
 				polling_down.remove(clock)
 
 	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
-	# Get history values which have no data for longer then the interval times 5
-	interval_threshold = int(item_interval) * 5
+	# Get history values which have no data for longer then the interval and at least 5 minutes (Zabbix internal interval)
+	if item_interval < 300:
+		interval_threshold = 300
+	else:
+		interval_threshold = (item_interval * 2) + 10
 	rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
 	 (\
 	  select clock, clock - lag(clock) over (order by clock) as difference from history_uint\
@@ -471,7 +474,6 @@ def getUptimeGraph(itemid):
 	uptime_graph.save(str(itemid) + '.png')
 
 	# Generate table overview of down time (get consecutive down periods)
-#	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
 	item_interval *=2 #Double interval. Interval is never exact. Allways has a deviation of 1 or 2 seconds. So we double the interval just to be safe
 	downtime_periods = []
 	if len(polling_down_rows) > 0:
@@ -575,6 +577,34 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		document = docx.opendocx(existing_report, mreport_home + '/tmp')
 	relationships = docx.relationshiplist(existing_report, mreport_home + '/tmp')
 	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
+	# Samenvatting toevoegen met maintenance overzicht in opmerkingen
+	body.append(docx.heading("Samenvatting", 1))
+	body.append(docx.heading("Opmerkingen", 2))
+	# Maintenance tabel
+	maintenance_periods = getMaintenancePeriods(hostgroupid)
+	maintenance_tbl_rows = []
+	tbl_heading = [ 'OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR' ]
+	maintenance_tbl_rows.append(tbl_heading)
+	for num in range(len(maintenance_periods)):
+		tbl_row = []
+		(description, start_period, end_period) = maintenance_periods[num]
+		tbl_row.append(description)
+		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+		tbl_row.append(hms(end_period - start_period))
+		maintenance_tbl_rows.append(tbl_row)
+	if len(maintenance_periods) > 0:
+		body.append(docx.table(maintenance_tbl_rows))
+	else:
+		tbl_rows = []
+		tbl_heading = [ 'ITEM', 'OPMERKINGEN' ]
+		tbl_rows.append(tbl_heading)
+		tbl_rows.append(['',''])
+		body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
+
+
+	body.append(docx.heading("Aktiepunten", 2))
+
 	body.append(docx.heading("MIOS monitoring", 1))
 	body.append(docx.heading("Beschikbaarheid business services", 2))
 	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business services grafisch weergegeven. Business services worden gezien als de services die toegang verschaffen tot core-functionaliteit."))
@@ -621,20 +651,9 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 					body.append(docx.table(tbl_rows))
 	# Maintenance periodes
 	body.append(docx.heading("Maintenance-overzicht", 3))
-	maintenance_periods = getMaintenancePeriods(hostgroupid)
-	tbl_rows = []
-	tbl_heading = [ 'OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR' ]
-	tbl_rows.append(tbl_heading)
-	for num in range(len(maintenance_periods)):
-		tbl_row = []
-		(description, start_period, end_period) = maintenance_periods[num]
-		tbl_row.append(description)
-		tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
-		tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
-		tbl_row.append(hms(end_period - start_period))
-		tbl_rows.append(tbl_row)
+	# De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
 	if len(maintenance_periods) > 0:
-		body.append(docx.table(tbl_rows))
+		body.append(docx.table(maintenance_tbl_rows))
 	else:
 		body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
@@ -684,13 +703,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
 	# Trending grafieken
 	body.append(docx.heading("Trending", 2))
-	body.append(docx.paragraph('De volgende paragrafen laten trending-grafieken zien. Deze grafieken zijn gemaakt op basis van een selectie van basic performance counters, en beslaan een periode van minimaal 6 maanden, of sinds de "go-live" van de infrastructuur/business service. Met behulp van de grafieken en strategische planningen moeten voorspellingen kunnen worden gedaan over de toekomstig beschikbare capaciteit van infrastructuur-componenten. Eventuele (kritieke) grenswaarden zijn met een rode lijn aangegeven.'))
-#	points = [	'CPU-load (minimaal 6 maanden)',
-#			'Counters die tegen limiet aan gaan komen',
-#			'Disk-bezetting',
-#			'IOPS']
-#	for point in points:
-#		body.append(docx.paragraph(point, style='ListBulleted'))
+	body.append(docx.paragraph('De volgende paragrafen laten trending-grafieken zien. Deze grafieken zijn gemaakt op basis van een selectie van basic performance counters en beslaan een periode van minimaal 6 maanden, of sinds de "go-live" van de infrastructuur/business service. Met behulp van de grafieken en strategische planningen moeten voorspellingen kunnen worden gedaan over de toekomstig beschikbare capaciteit van infrastructuur-componenten. Eventuele (kritieke) grenswaarden zijn met een rode lijn aangegeven.'))
 	for host in hosts:
 		host_has_graphs = 0
 		for record in graphData:
@@ -705,7 +718,6 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
-#			body.append(docx.pagebreak(type='page', orient='portrait'))
 
 	body.append(docx.heading("Opmerkingen", 3))
 	tbl_rows = []
