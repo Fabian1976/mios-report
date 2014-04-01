@@ -8,6 +8,8 @@ import sys, os
 import time, datetime
 import traceback
 from getpass import getpass
+import logging, logging.handlers, logging.config
+
 # Add mios-report LIB to path
 try:
         mreport_home = os.environ['MREPORT_HOME']
@@ -32,6 +34,7 @@ class Config:
 		self.postgres_dbname     = ''
 		self.postgres_dbs        = {}
 		self.hostgroupid         = None
+		self.in_test             = 0
 		self.report_name         = ''
 		self.report_template     = ''
 		self.report_start_date   = ''
@@ -116,6 +119,10 @@ class Config:
 			self.hostgroupid = self.customer_config.get('report', 'hostgroupid')
 		except:
 			self.hostgroupid = None
+		try:
+			self.in_test = self.customer_config.get('report', 'in_test')
+		except:
+			self.in_test = 0
 		try:
 			self.report_name = self.customer_config.get('report', 'name')
 		except:
@@ -233,8 +240,7 @@ class Postgres(object):
 		self.password         = []
 		self.dbs              = []
 		self.instances        = instances
-		self.last_connect     = []
-#		self.logger           = logging.getLogger(type(self).__name__)
+		self.logger           = logging.getLogger(type(self).__name__)
 
 		try:
 			import psycopg2
@@ -242,12 +248,12 @@ class Postgres(object):
 			self.psycopg2 = psycopg2
 			self.psycopg2_extras = psycopg2.extras
 			self.postgres_support = 1
-			print("Successfully loaded psycopg2 module")
+			self.logger.info("Successfully loaded psycopg2 module")
 		except ImportError:
-			print("Module psycopg2 is not installed, please install it!")
+			self.logger.error("Module psycopg2 is not installed, please install it!")
 			raise
 		except:
-			print("Error while loading psycopg2 module!")
+			self.logger.error("Error while loading psycopg2 module!")
 			raise
 
 		if self.postgres_support == 0:
@@ -264,7 +270,6 @@ class Postgres(object):
 			self.cursor.append(None)
 			self.version.append('')
 			indx = self.dbs.index(instance)
-			self.last_connect.append(0)
 			self.connect(indx)
 
 	def connect(self, indx):
@@ -272,21 +277,21 @@ class Postgres(object):
 		while self.connections[indx] == None:
 			try:
 				self.connections[indx] = self.psycopg2.connect("host='%s' port='%s' dbname='%s' user='%s' password='%s'" % (self.host[indx], self.port[indx], self.dbs[indx], self.user[indx], self.password[indx]))
-				print("Connection succesful")
+				self.logger.info("Connection succesful (%s)" % self.dbs[indx])
 			except Exception, e:
-				print("Unable to connect to Postgres")
-				print("PG: Additional information: %s" % e)
-				print("Trying to reconnect in 10 seconds")
+				self.logger.critical("Unable to connect to Postgres")
+				self.logger.critical("PG: Additional information: %s" % e)
+				self.logger.info("Trying to reconnect in 10 seconds")
+				time.sleep(10)
 		self.cursor[indx]      = self.connections[indx].cursor(cursor_factory=self.psycopg2_extras.DictCursor)
 		self.cursor[indx].execute('select version()')
 		self.version[indx]     = self.cursor[indx].fetchone()
-		self.last_connect      = time.time()
-		print("Connect to Postgres version %s DB: %s" % (self.version[indx], self.dbs[indx]))
+		self.logger.info("Connect to Postgres version %s DB: %s" % (self.version[indx], self.dbs[indx]))
 
 	def execute(self, db, query):
 
 		if self.postgres_support == 0:
-			print("Postgres not supported")
+			self.logger.error("Postgres not supported")
 			return None
 
 		if not db in self.dbs:
@@ -296,21 +301,22 @@ class Postgres(object):
 			try:
 				self.cursor[indx].execute(query)
 			except Exception, e:
-				print("PG: Failed to execute query: %s" % query)
-				print("PG: Additional info: %s" % e)
+				self.logger.error("PG: Failed to execute query: %s" % query)
+				self.logger.error("PG: Additional info: %s" % e)
 				return -1
 
 			try:
 				value = self.cursor[indx].fetchall()
 			except Exception, e:
-				print("PG: Failed to fetch resultset")
-				print("PG: Additional info: %s" % e)
+				self.logger.error("PG: Failed to fetch resultset")
+				self.logger.error("PG: Additional info: %s" % e)
 				return -1
 
-#			print("indx: %d db: %s action: %s value: %s" % (indx, db, query, str(value)))
+			self.logger.debug("Query executed: %s" % query)
+			self.logger.debug("Query result  : %s" % str(value))
 			return value
 		except:
-			print("Error in Postgres connection DB: %s" % db)
+			self.logger.critical("Error in Postgres connection DB: %s" % db)
 			raise
 			return -2
 
@@ -320,6 +326,8 @@ def selectHostgroup():
 	for hostgroup in zapi.hostgroup.get({ "output": "extend", "filter": { "internal": "0"} }):
 		teller+=1
 		hostgroups[teller] = (hostgroup['name'], hostgroup['groupid'])
+		rootLogger.info("selectHostgroup - Fetching hostgroups via API")
+		rootLogger.debug("selectHostgroup - Fetched hostgroups: %s" % hostgroups)
 	hostgroupid = -1
 	while hostgroupid == -1:
 		os.system('clear')
@@ -328,39 +336,49 @@ def selectHostgroup():
 			print '\t%2d: %s (hostgroupid: %s)' % (hostgroup, hostgroups[hostgroup][0], hostgroups[hostgroup][1])
 		try:
 			hostgroupnr = int(raw_input('Select hostgroup: '))
+			rootLogger.debug("selectHostgroup - Raw input: %s" % hostgroupnr)
 			try:
 				hostgroupid = hostgroups[hostgroupnr][1]
 				hostgroupname = hostgroups[hostgroupnr][0]
 			except KeyError:
+				rootLogger.error("selectHostgroup - Raw input out of range, try again")
 				print "\nCounting is not your geatest asset!"
 				hostgroupid = -1
 				print "\nPress a key to try again..."
 				os.system('read -N 1 -s')
 		except ValueError:
+			rootLogger.error("selectHostgroup - Raw input not a number, try again")
 			print "\nEeuhm... I don't think that's a number!"
 			hostgroupid = -1
 			print "\nPress a key to try again..."
 			os.system('read -N 1 -s')
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
+	rootLogger.info("selectHostgroup - Hostgroup selected (hostgroupid: %s, hostgroupname: %s)" % ( hostgroupid, hostgroupname))
 	return (hostgroupid, hostgroupname)
 
 def getHostgroupName(hostgroupid):
-        teller = 0
 	try:
+		rootLogger.info("getHostgroupName - Fetching hostgroupname via API")
 		hostgroupname = zapi.hostgroup.get({ "output": "extend", "filter": { "groupid": hostgroupid} })[0]['name']
-	except:
+	except Exception, e:
+		rootLogger.error("getHostgroupName - Fetching hostgroupname via API failed")
+		rootLogger.error("getHostgroupName - Additional info: %s" % e)
 		hostgroupname = 0
         return hostgroupname
 
-def checkHostgroup(hostgroupid):
+def checkHostgroupGraphs(hostgroupid):
+	rootLogger.debug("checkHostgroupGraphs - Checking if graphs for this hostgroupid (%s) are configured" % hostgroupid)
 	num_graphs_host = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_graphs where hostgroupid = %s" % hostgroupid)
 	num_items_host = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_uptime where hostgroupid = %s" % hostgroupid)
 	if int(num_graphs_host[0][0]) > 0:
+		rootLogger.debug("checkHostgroupGraphs - Found graphs for hostgroupid (%s)" % hostgroupid)
 		result = 1
 	elif int(num_items_host[0][0]) > 0:
+		rootLogger.debug("checkHostgroupGraphs - Found uptime items for hostgroupid (%s)" % hostgroupid)
 		result = 1
 	else:
+		rootLogger.error("checkHostgroupGraphs - Didn't find graphs or uptime items for hostgroupid (%s)" % hostgroupid)
 		result = 0
 	return result
 
@@ -510,9 +528,11 @@ def getMaintenancePeriods(hostgroupid):
 	return maintenance_rows
 
 def getGraphsList(hostgroupid):
+	rootLogger.info("getGraphsList - Fetching graphs list for hostgroup (%s)" % hostgroupid)
 	return postgres.execute(config.postgres_dbname, "select * from mios_report_graphs where hostgroupid = %s order by hostname, graphname" % hostgroupid)
 
 def getItemsList(hostgroupid):
+	rootLogger.info("getItemsList - Fetching uptime items for hostgroup (%s)" % hostgroupid)
 	return postgres.execute(config.postgres_dbname, "select * from mios_report_uptime where hostgroupid = %s order by hostname, itemname" % hostgroupid)
 
 def getBackupList(itemid):
@@ -521,8 +541,12 @@ def getBackupList(itemid):
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
 
-#	backupList = postgres.execute(config.postgres_dbname, "select value from history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
-	backupList = [['15-11-2013 00:59:03;15-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL'] ,['14-11-2013 00:59:03;14-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL']]
+	if config.in_test:
+		rootLogger.info("getBackupList - In test mode. Using fixed backuplist")
+		backupList = [['15-11-2013 00:59:03;15-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL'] ,['14-11-2013 00:59:03;14-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL']]
+	else:
+		rootLogger.info("getBackupList - Not in test mode. Fetching backuplist from database")
+		backupList = postgres.execute(config.postgres_dbname, "select value from history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
 	return backupList
 
 def sendReport(filename, hostgroupname):
@@ -856,29 +880,35 @@ def main():
 	atexit.register(cleanup)
 
 	postgres = Postgres(config.postgres_dbs)
-
+	rootLogger.info('============================= Starting MIOS-REPORT ==================================')
 	# get hostgroup
 	if not config.hostgroupid:
+		rootLogger.info("No hostgroup defined in config file %s. Displaying hostgroup selection screen" % config.customer_conf_file)
 		hostgroupid, hostgroupname = selectHostgroup()
+		rootLogger.info("Using selected hostgroup (hostgroupid: %s, hostgroupname: %s)" % (hostgroupid, hostgroupname))
 	else:
 		hostgroupid, hostgroupname = config.hostgroupid, getHostgroupName(config.hostgroupid)
+		rootLogger.info("Using hostgroup from config file (hostgroupid: %s, hostgroupname: %s)" % (hostgroupid, hostgroupname))
 
-	if not checkHostgroup(hostgroupid):
+	if not checkHostgroupGraphs(hostgroupid):
 		os.system('clear')
 		print "There are no graphs registered in the database for hostgroup '%s'" % hostgroupname
 		print "Please run the db_filler script first to select the graphs you want in the report for this hostgroup"
+		rootLogger.fatal("There are no graphs registered in the database for hostgroup '%s'" % hostgroupname)
+		rootLogger.fatal("Please run the db_filler script first to select the graphs you want in the report for this hostgroup")
 		sys.exit(1)
 	else:
 		os.system('clear')
 		# get the hosts and their graphs from selected host group
 		graphsList = getGraphsList(hostgroupid)
 		itemsList = getItemsList(hostgroupid)
-#		itemsList = {}
+		sys.exit(1)
 		generateReport(hostgroupid, hostgroupname, graphsList, itemsList)
 
 if  __name__ == "__main__":
 	global config
 	global start_date
+	global rootLogger
 	try:
 		mreport_home = os.environ['MREPORT_HOME']
 	except:
@@ -907,13 +937,24 @@ if  __name__ == "__main__":
 
 	config = Config(config_file, customer_conf_file)
 	config.parse()
+	try:
+		logging.config.fileConfig(mreport_home + '/conf/logging.conf')
+	except:
+		print "Error while loading file necessary for the log facility ($MREPORT_HOME/conf/logging.conf)"
+		print "Unable to continue"
+		exit(1)
 
-	zapi = ZabbixAPI(server=config.zabbix_frontend,log_level=0)
+	rootLogger = logging.getLogger()
+
+	rootLogger.info('============================= Initialize MIOS-REPORT ================================')
+	zapi = ZabbixAPI(server=config.zabbix_frontend)
 
 	try:
+		rootLogger.info("Connecting to Zabbix API")
 		zapi.login(config.zabbix_user, config.zabbix_password)
-#		print "Zabbix API Version: %s" % zapi.api_version()
+		rootLogger.info("Connected to Zabbix API Version: %s" % zapi.api_version())
 	except ZabbixAPIException, e:
-		sys.stderr.write(str(e) + '\n')
-
+		rootLogger.fatal("Zabbix API connection failed")
+		rootLogger.fatal("Additional info: %s" % e)
+		sys.exit(1)
 	main()
