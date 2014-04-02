@@ -431,7 +431,7 @@ def getUptimeGraph(itemid):
 	rootLogger.info("getUptimeGraph - Fetching uptime graphs")
 	day, month, year = map(int, config.report_start_date.split('-'))
 
-	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	start_epoch = int(time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))
 	end_epoch = start_epoch + config.report_period
 	rootLogger.info("getUptimeGraph - Fetching total polling items for item: %s, epoch between %s and %s" % (itemid, start_epoch, end_epoch))
 	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
@@ -545,7 +545,7 @@ def getUptimeGraph(itemid):
 		
 def getMaintenancePeriods(hostgroupid):
 	day, month, year = map(int, config.report_start_date.split('-'))
-	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	start_epoch = int(time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))
 	end_epoch = start_epoch + config.report_period
 	rootLogger.info("getMaintenancePeriods - Fetching maintenance rows for hostgroupid: %s, epoch between %s and %s" % (hostgroupid, start_epoch, end_epoch))
 	maintenance_rows = postgres.execute(config.postgres_dbname, "select maintenances.name || '. ' || maintenances.description, start_date, (start_date + period) from timeperiods\
@@ -568,7 +568,7 @@ def getItemsList(hostgroupid):
 def getBackupList(itemid):
 	day, month, year = map(int, config.report_start_date.split('-'))
 
-	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	start_epoch = int(time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))
 	end_epoch = start_epoch + config.report_period
 
 	if config.in_test:
@@ -673,6 +673,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		if record['graphtype'] == 'w':
 			rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
 			getGraph(record['graphid'], 'w')
+			time.sleep(1) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
 			relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
 			body.append(picpara)
 			body.append(docx.figureCaption(record['graphname']))
@@ -749,6 +750,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating performance graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 'p')
+					time.sleep(1) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
 					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
@@ -775,6 +777,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating trending graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 't')
+					time.sleep(1) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
 					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
