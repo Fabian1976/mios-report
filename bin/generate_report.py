@@ -397,7 +397,7 @@ def getGraph(graphid, graphtype):
 	# When we leave the filename of the cookie empty, curl stores the cookie in memory
 	# so now the cookie doesn't have to be removed after usage. When the script finishes, the cookie is also gone
 	z_filename_cookie = ''
-	z_image_name = str(graphid) + '_' + graphtype + '.png'
+	z_image_name = mreport_home + '/' + str(graphid) + '_' + graphtype + '.png'
 	# Log on to Zabbix and get session cookie
 	rootLogger.debug("getGraph - Logging on to Zabbix and retrieving cookie")
 	curl.setopt(curl.URL, z_url_index)
@@ -513,7 +513,7 @@ def getUptimeGraph(itemid):
 	uptime_graph.size(400,100)
 	uptime_graph.label('Up (%.2f%%)' % percentage_up, 'Down (%.2f%%)' % percentage_down, 'Maintenance (%.2f%%)' % percentage_down_maintenance)
 	uptime_graph.color('00dd00','dd0000', 'ff8800')
-	uptime_graph.save(str(itemid) + '.png')
+	uptime_graph.save(mreport_home + '/' + str(itemid) + '.png')
 
 	# Generate table overview of down time (get consecutive down periods)
 	rootLogger.info("getUptimeGraph - Generate downtime rows to be displayed in Word as table for item: %s" % itemid)
@@ -609,11 +609,12 @@ def sendReport(filename, hostgroupname):
 	attachFile = MIMEBase('application', 'msword')
 	attachFile.set_payload(file(filename).read())
 	Encoders.encode_base64(attachFile)
-	attachFile.add_header('Content-Disposition', 'attachment', filename=filename)
+	attachFile.add_header('Content-Disposition', 'attachment', filename=os.path.basename(filename))
 	msg.attach(attachFile)
 	msg['Subject'] = 'Rapportage %s, %s t/m %s' % (hostgroupname, config.report_start_date, config.report_end_date)
 	msg['From'] = sender
 	msg['To'] = receiver
+	rootLogger.info("sendReport - Mailing report to %s" % receiver)
 	mailer = smtplib.SMTP(config.email_server)
 	mailer.sendmail(sender, receiver, msg.as_string())
 	mailer.quit()
@@ -672,7 +673,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		if record['graphtype'] == 'w':
 			rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
 			getGraph(record['graphid'], 'w')
-			relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_w.png', record['graphname'], 450)
+			relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
 			body.append(picpara)
 			body.append(docx.figureCaption(record['graphname']))
 	hosts = []
@@ -693,7 +694,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			if record['itemname'] == item:
 				rootLogger.info("generateReport - Generating uptime graph '%s' from item '%s'" % (record['itemname'], item))
 				downtime_periods = getUptimeGraph(record['itemid'])
-				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
+				relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
 				body.append(picpara)
 #				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
@@ -748,7 +749,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating performance graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 'p')
-					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_p.png', record['graphname'], 450)
+					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 #			body.append(docx.pagebreak(type='page', orient='portrait'))
@@ -774,7 +775,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating trending graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 't')
-					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_t.png', record['graphname'], 450)
+					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 
@@ -848,7 +849,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
 	body.append(docx.heading("Omgevingsoverzicht", 1))
 	if config.report_infra_picture:
-		relationships, picpara = docx.picture(relationships, '/opt/mios/mios-report/templates/' + config.report_infra_picture, config.report_infra_picture.split('.')[0].replace('_', ' '), 450)
+		relationships, picpara = docx.picture(relationships, mreport_home + '/templates/' + config.report_infra_picture, config.report_infra_picture.split('.')[0].replace('_', ' '), 450)
 		body.append(picpara)
 		body.append(docx.figureCaption(config.report_infra_picture.split('.')[0].replace('_', ' ')))
 	rootLogger.info("generateReport - Start creating docx")
@@ -863,17 +864,17 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		appprops = docx.appproperties()
 		contenttypes = docx.contenttypes()
 		websettings = docx.websettings()
-		docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, config.report_name)
+		docx.savedocx(document, coreprops, appprops, contenttypes, websettings, wordrelationships, mreport_home + '/' + config.report_name)
 	else:
 		import shutil, glob
 		for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 			shutil.copy2(file, mreport_home + '/tmp/word/media/')
-		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output=config.report_name, template=existing_report, tmp_folder=mreport_home + '/tmp')
+		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output=mreport_home + '/' + config.report_name, template=existing_report, tmp_folder=mreport_home + '/tmp')
 	rootLogger.info("generateReport - Done creating docx")
 	#send it through email
 	if config.email_receiver != '':
 		rootLogger.info("generateReport - Sending report by email")
-		sendReport(config.report_name, hostgroupname)
+		sendReport(mreport_home + '/' + config.report_name, hostgroupname)
 	else:
 		rootLogger.warning("No email receiver specified. Report will not be sent by email. Download it manually")
 
@@ -895,7 +896,7 @@ def cleanup():
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
 	rootLogger.info("cleanup - Removing generated graph images")
-	for file in glob.glob(mreport_home + '/bin/*.png'):
+	for file in glob.glob(mreport_home + '/*.png'):
 		os.remove(file)
 	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 		os.remove(file)
@@ -936,7 +937,6 @@ def main():
 		rootLogger.fatal("Please run the db_filler script first to select the graphs you want in the report for this hostgroup")
 		sys.exit(1)
 	else:
-		os.system('clear')
 		# get the hosts and their graphs from selected host group
 		graphsList = getGraphsList(hostgroupid)
 		itemsList = getItemsList(hostgroupid)
@@ -947,10 +947,6 @@ if  __name__ == "__main__":
 	global config
 	global start_date
 	global rootLogger
-	try:
-		mreport_home = os.environ['MREPORT_HOME']
-	except:
-		mreport_home = "/opt/mios/mios-report"
 
 	config_file = mreport_home + '/conf/mios-report.conf'
 	from optparse import OptionParser
