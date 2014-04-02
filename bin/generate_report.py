@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "2.9"
+__version__   = "3.0"
 
 import ConfigParser
 import sys, os
@@ -492,20 +492,20 @@ def getUptimeGraph(itemid):
 		item_nodata_rows.append((start_date_nodata, end_date_nodata))
 	rootLogger.info("")
 	rootLogger.info("getUptimeGraph - Summary for item: %s" % itemid)
-	rootLogger.info("Polling items with nodata                : %s" % num_pollings_nodata)
-	rootLogger.info("Polling items down and in maintenance    : %s" % len(polling_down_maintenance))
-	rootLogger.info("Polling items down and NOT in maintenance: %s" % len(polling_down))
-	rootLogger.info("Polling items UP                         : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down)))
-	rootLogger.info("Start epoch      : ", start_epoch)
-	rootLogger.info("Eind epoch       : ", end_epoch)
-	rootLogger.info("Period in seconds: ", config.report_period)
+	rootLogger.info("Polling items with nodata                           : %s" % num_pollings_nodata)
+	rootLogger.info("Polling items down and in maintenance               : %s" % len(polling_down_maintenance))
+	rootLogger.info("Polling items down and NOT in maintenance           : %s" % len(polling_down))
+	rootLogger.info("Polling items UP                                    : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down)))
+	rootLogger.info("Start epoch                                         : %s" % start_epoch)
+	rootLogger.info("Eind epoch                                          : %s" % end_epoch)
+	rootLogger.info("Period in seconds                                   : %s" % config.report_period)
 
 	percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
 	percentage_down = (float(len(polling_down)+num_pollings_nodata) / float(polling_total)) * 100
 	percentage_up = 100 - (percentage_down + percentage_down_maintenance)
-	rootLogger.info("Percentage down and in maintenanve during period    : ", percentage_down_maintenance)
-	rootLogger.info("Percentage down and NOT in maintenance during period: ", percentage_down)
-	rootLogger.info("Percentage up during period                         : ", percentage_up)
+	rootLogger.info("Percentage down and in maintenanve during period    : %s" % percentage_down_maintenance)
+	rootLogger.info("Percentage down and NOT in maintenance during period: %s" % percentage_down)
+	rootLogger.info("Percentage up during period                         : %s" % percentage_up)
 	rootLogger.info("")
 
 	rootLogger.info("getUptimeGraph - Fetching pie chart using Google GChartWrapper.Pie3D API for item: %s" % itemid)
