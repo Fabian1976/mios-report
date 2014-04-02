@@ -399,6 +399,7 @@ def getGraph(graphid, graphtype):
 	z_filename_cookie = ''
 	z_image_name = str(graphid) + '_' + graphtype + '.png'
 	# Log on to Zabbix and get session cookie
+	rootLogger.debug("getGraph - Logging on to Zabbix and retrieving cookie")
 	curl.setopt(curl.URL, z_url_index)
 	curl.setopt(curl.POSTFIELDS, z_login_data)
 	curl.setopt(curl.COOKIEJAR, z_filename_cookie)
@@ -408,29 +409,40 @@ def getGraph(graphid, graphtype):
 	# By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
 	# You can also give a starttime (&stime=yyyymmddhh24mm). Example: &stime=201310130000&period=86400, will start from 13-10-2013 and show 1 day (86400 seconds)
 	if graphtype == 't': #trending graph
+		rootLogger.info("getGraph - Fetching trending graph")
 		day, month, year = config.report_trend_start.split('-')
 		stime = year + month + day + '000000'
+		rootLogger.info("getGraph - graphid: %s, width: %s, stime: %s, period: %s" % (str(graphid), config.report_graph_width, stime, str(config.report_trend_period)))
 		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_trend_period))
 	else: # normal graph
+		rootLogger.info("getGraph - Fetching normal graph")
 		day, month, year = config.report_start_date.split('-')
 		stime = year + month + day + '000000'
+		rootLogger.info("getGraph - graphid: %s, width: %s, stime: %s, period: %s" % (str(graphid), config.report_graph_width, stime, str(config.report_period)))
 		curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period))
 	curl.setopt(curl.WRITEFUNCTION, buffer.write)
 	curl.perform()
 	f = open(z_image_name, 'wb')
 	f.write(buffer.getvalue())
+	rootLogger.debug("getGraph - Writing image: %s" % z_image_name)
 	f.close()
 
 def getUptimeGraph(itemid):
+	rootLogger.info("getUptimeGraph - Fetching uptime graphs")
 	day, month, year = map(int, config.report_start_date.split('-'))
 
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
+	rootLogger.info("getUptimeGraph - Fetching total polling items for item: %s, epoch between %s and %s" % (itemid, start_epoch, end_epoch))
 	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
+	rootLogger.debug("getUptimeGraph - Total polling items for item: %s, %s" % (itemid, polling_total))
+	rootLogger.info("getUptimeGraph - Fetching clocks for downtime, item: %s, epoch between %s and %s" % (itemid, start_epoch, end_epoch))
 	rows = postgres.execute(config.postgres_dbname, "select clock from history_uint where itemid = %s and clock > %s and clock < %s and value = 0 order by clock" % (itemid, start_epoch, end_epoch))
+	rootLogger.debug("getUptimeGraph - Clocks for downtime for item: %s, %s" % (itemid, rows))
 	polling_down_rows = []
 	for row in rows:
 		polling_down_rows.append(row[0])
+	rootLogger.info("getUptimeGraph - Fetching maintenance periods for item: %s, epoch between %s and %s" % (itemid, start_epoch, end_epoch))
 	item_maintenance_rows = postgres.execute(config.postgres_dbname, "select start_date, (start_date + period) from timeperiods\
 	 inner join maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
 	 inner join maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
@@ -440,8 +452,10 @@ def getUptimeGraph(itemid):
 	 inner join hosts on hosts_groups.hostid = hosts.hostid\
 	 inner join items on items.hostid = hosts.hostid\
 	 where items.itemid = %s and timeperiods.start_date between %s and %s" % (itemid, start_epoch, end_epoch))
+	rootLogger.debug("getUptimeGraph - Maintenance periods for item: %s, %s" % (itemid, item_maintenance_rows))
 	polling_down_maintenance = []
 	polling_down = list(polling_down_rows) # Make copy of list so that it can be edited without affecting original list (mutable), same as polling_down_rows[:]
+	rootLogger.info("getUptimeGraph - Check if downtime was in maintenance")
 	for clock in polling_down_rows:
 		for mclock in item_maintenance_rows:
 			if mclock[0] <= clock <= mclock[1]:
@@ -450,18 +464,24 @@ def getUptimeGraph(itemid):
 				polling_down_maintenance.append(clock)
 				polling_down.remove(clock)
 
+	rootLogger.info("getUptimeGraph - Fetch item interval for item: %s" % itemid)
 	item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
+	rootLogger.debug("getUptimeGraph - Item interval for item: %s, %s" % (itemid, item_interval))
 	# Get history values which have no data for longer then the interval and at least 5 minutes (Zabbix internal interval)
 	if item_interval < 300:
 		interval_threshold = 300
+		rootLogger.info("getUptimeGraph - Item interval shorter then 5 minutes. Assuming default of 5 minutes for threshold for item: %s" % itemid)
 	else:
 		interval_threshold = (item_interval * 2) + 10
+		rootLogger.info("getUptimeGraph - Item interval longer then 5 minutes. Setting threshold for item %s to %s" % (itemid, interval_threshold))
+	rootLogger.info("getUptimeGraph - Fetching clocks with consecutive downtime larger then threshold for item: %s" % itemid)
 	rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
 	 (\
 	  select clock, clock - lag(clock) over (order by clock) as difference from history_uint\
 	  where itemid = %s and clock between %s and %s\
 	 ) t\
 	 where difference > %s" % (itemid, start_epoch, end_epoch, interval_threshold))
+	rootLogger.debug("getUptimeGraph - Clocks with consecutive downtime for item: %s, %s" % (itemid, rows))
 	item_nodata_rows = []
 	num_pollings_nodata = 0
 	for row in rows:
@@ -470,21 +490,25 @@ def getUptimeGraph(itemid):
 		num_pollings_nodata += (seconds_nodata / item_interval)
 		start_date_nodata = end_date_nodata - seconds_nodata
 		item_nodata_rows.append((start_date_nodata, end_date_nodata))
-	print "Polling items with nodata                : %s" % num_pollings_nodata
-	print "Polling items down and in maintenance    : %s" % len(polling_down_maintenance)
-	print "Polling items down and NOT in maintenance: %s" % len(polling_down)
-	print "Polling items UP                         : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down))
-	print "Start epoch      : ", start_epoch
-	print "Eind epoch       : ", end_epoch
-	print "Period in seconds: ", config.report_period
+	rootLogger.info("")
+	rootLogger.info("getUptimeGraph - Summary for item: %s" % itemid)
+	rootLogger.info("Polling items with nodata                : %s" % num_pollings_nodata)
+	rootLogger.info("Polling items down and in maintenance    : %s" % len(polling_down_maintenance))
+	rootLogger.info("Polling items down and NOT in maintenance: %s" % len(polling_down))
+	rootLogger.info("Polling items UP                         : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down)))
+	rootLogger.info("Start epoch      : ", start_epoch)
+	rootLogger.info("Eind epoch       : ", end_epoch)
+	rootLogger.info("Period in seconds: ", config.report_period)
 
 	percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
 	percentage_down = (float(len(polling_down)+num_pollings_nodata) / float(polling_total)) * 100
 	percentage_up = 100 - (percentage_down + percentage_down_maintenance)
-	print "Percentage down and in maintenanve during period    : ", percentage_down_maintenance
-	print "Percentage down and NOT in maintenance during period: ", percentage_down
-	print "Percentage up during period                         : ", percentage_up
+	rootLogger.info("Percentage down and in maintenanve during period    : ", percentage_down_maintenance)
+	rootLogger.info("Percentage down and NOT in maintenance during period: ", percentage_down)
+	rootLogger.info("Percentage up during period                         : ", percentage_up)
+	rootLogger.info("")
 
+	rootLogger.info("getUptimeGraph - Fetching pie chart using Google GChartWrapper.Pie3D API for item: %s" % itemid)
 	uptime_graph = Pie3D([percentage_up, percentage_down, percentage_down_maintenance])
 	uptime_graph.size(400,100)
 	uptime_graph.label('Up (%.2f%%)' % percentage_up, 'Down (%.2f%%)' % percentage_down, 'Maintenance (%.2f%%)' % percentage_down_maintenance)
@@ -492,7 +516,10 @@ def getUptimeGraph(itemid):
 	uptime_graph.save(str(itemid) + '.png')
 
 	# Generate table overview of down time (get consecutive down periods)
+	rootLogger.info("getUptimeGraph - Generate downtime rows to be displayed in Word as table for item: %s" % itemid)
 	item_interval *=2 #Double interval. Interval is never exact. Allways has a deviation of 1 or 2 seconds. So we double the interval just to be safe
+	rootLogger.info("getUptimeGraph - Doubling interval for item: %s. Interval is never exact. Allways a deviation of a couple of seconds. So double it just to be safe" % itemid)
+	rootLogger.info("getUptimeGraph - New interval for itemid: %s, %s" % (itemid, item_interval))
 	downtime_periods = []
 	if len(polling_down_rows) > 0:
 		for num in range(len(polling_down_rows)):
@@ -513,18 +540,21 @@ def getUptimeGraph(itemid):
 	# Append nodata rows to downtime_periods
 	for nodata_rows in item_nodata_rows:
 		downtime_periods.append(nodata_rows)
+	rootLogger.debug("getUptimeGraph - Downtime periods: %s" % downtime_periods)
 	return downtime_periods
 		
 def getMaintenancePeriods(hostgroupid):
 	day, month, year = map(int, config.report_start_date.split('-'))
 	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
 	end_epoch = start_epoch + config.report_period
+	rootLogger.info("getMaintenancePeriods - Fetching maintenance rows for hostgroupid: %s, epoch between %s and %s" % (hostgroupid, start_epoch, end_epoch))
 	maintenance_rows = postgres.execute(config.postgres_dbname, "select maintenances.name || '. ' || maintenances.description, start_date, (start_date + period) from timeperiods\
 	 inner join maintenances_windows on maintenances_windows.timeperiodid = timeperiods.timeperiodid\
 	 inner join maintenances on maintenances.maintenanceid = maintenances_windows.maintenanceid\
 	 inner join maintenances_groups on maintenances_groups.maintenanceid = maintenances.maintenanceid\
 	 inner join groups on maintenances_groups.groupid = groups.groupid\
 	 where groups.groupid = %s and timeperiods.start_date between %s and %s" %(hostgroupid, start_epoch, end_epoch))
+	rootLogger.debug("getMaintenancePeriods - Maintenance rows: %s" % maintenance_rows)
 	return maintenance_rows
 
 def getGraphsList(hostgroupid):
@@ -591,14 +621,19 @@ def sendReport(filename, hostgroupname):
 def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	import docx
 
+	rootLogger.info("generateReport - Starting report generation")
 	if config.report_template == '':
 		existing_report = ''
+		rootLogger.info("generateReport - Using the default docx template")
 	else:
 		existing_report = config.mreport_home + '/templates/' + config.report_template
+		rootLogger.info("generateReport - Using the specified template: %s" % existing_report)
 	if not existing_report:
 		document = docx.newdocument()
+		rootLogger.debug("generateReport - Creating new document")
 	else:
 		document = docx.opendocx(existing_report, mreport_home + '/tmp')
+		rootLogger.debug("generateReport - Opening existing document: %s" % existing_report)
 	relationships = docx.relationshiplist(existing_report, mreport_home + '/tmp')
 	body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
 	# Samenvatting toevoegen met maintenance overzicht in opmerkingen
@@ -635,7 +670,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	body.append(docx.heading("Web-check", 3))
 	for record in graphData:
 		if record['graphtype'] == 'w':
-			print "Generating web-check graph '%s'" % record['graphname']
+			rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
 			getGraph(record['graphid'], 'w')
 			relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_w.png', record['graphname'], 450)
 			body.append(picpara)
@@ -656,7 +691,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		body.append(docx.heading(item, 3))
 		for record in itemData:
 			if record['itemname'] == item:
-				print "Generating uptime graph '%s' from item '%s'" % (record['itemname'], item)
+				rootLogger.info("generateReport - Generating uptime graph '%s' from item '%s'" % (record['itemname'], item))
 				downtime_periods = getUptimeGraph(record['itemid'])
 				relationships, picpara = docx.picture(relationships, str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
 				body.append(picpara)
@@ -711,7 +746,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			body.append(docx.heading(host, 3))
 			for record in graphData:
 				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
-					print "Generating performance graph '%s' from host '%s'" % (record['graphname'], host)
+					rootLogger.info("generateReport - Generating performance graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 'p')
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
@@ -737,7 +772,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			body.append(docx.heading(host, 3))
 			for record in graphData:
 				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
-					print "Generating trending graph '%s' from host '%s'" % (record['graphname'], host)
+					rootLogger.info("generateReport - Generating trending graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 't')
 					relationships, picpara = docx.picture(relationships, str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
@@ -752,7 +787,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
 	body.append(docx.heading("Advanced performance counters", 2))
 	body.append(docx.paragraph('Er zijn geen overzichten van advanced performance counters in het overzicht opgenomen. Advanced performance counters zijn wel zichtbaar in de beschikbaar gestelde dashboards (screens) in de monitoring-portal (https://mios.vermont24-7.com).'))
-	print "\nDone generating graphs..."
+	rootLogger.info("generateReport - Done generating graphs...")
 
 	# Backup overzicht
 	body.append(docx.heading("Backup overzicht", 2))
@@ -816,7 +851,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		relationships, picpara = docx.picture(relationships, '/opt/mios/mios-report/templates/' + config.report_infra_picture, config.report_infra_picture.split('.')[0].replace('_', ' '), 450)
 		body.append(picpara)
 		body.append(docx.figureCaption(config.report_infra_picture.split('.')[0].replace('_', ' ')))
-	print "\nStart generating report"
+	rootLogger.info("generateReport - Start creating docx")
 	title = config.report_title
 	subject = 'Performance en trending rapportage'
 	creator = 'Vermont 24/7'
@@ -834,12 +869,13 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 			shutil.copy2(file, mreport_home + '/tmp/word/media/')
 		docx.savedocx(document, coreprops, wordrelationships=wordrelationships, output=config.report_name, template=existing_report, tmp_folder=mreport_home + '/tmp')
-	print "Done generating report..."
+	rootLogger.info("generateReport - Done creating docx")
 	#send it through email
 	if config.email_receiver != '':
+		rootLogger.info("generateReport - Sending report by email")
 		sendReport(config.report_name, hostgroupname)
 	else:
-		print "No email receiver specified. Report will not be sent by email."
+		rootLogger.warning("No email receiver specified. Report will not be sent by email. Download it manually")
 
 def hms(seconds):
 	minutes, seconds = divmod(seconds, 60)
@@ -854,15 +890,16 @@ def hms(seconds):
 	return result
 
 def cleanup():
-	print "\nStart cleanup"
+	rootLogger.info("")
+	rootLogger.info("cleanup - Starting cleanup")
 	import glob # Unix style pathname pattern expansion
 	# Remove files which are no longer necessary
-	print "Remove generated graph images"
+	rootLogger.info("cleanup - Removing generated graph images")
 	for file in glob.glob(mreport_home + '/bin/*.png'):
 		os.remove(file)
 	for file in glob.glob(mreport_home + '/lib/template/word/media/*'):
 		os.remove(file)
-	print "Remove files from tmp folders"
+	rootLogger.info("cleanup - Removing files from tmp folders")
 	for root, dirs, files in os.walk(mreport_home + '/tmp/', topdown=False):
 		for name in files:
 			os.remove(os.path.join(root, name))
@@ -872,7 +909,8 @@ def cleanup():
 		os.remove('/tmp/docx_seq')
 	except:
 		pass
-	print "Done cleaning up\n"
+	rootLogger.info("cleanup - Done cleaning up")
+	rootLogger.info("")
 
 def main():
 	global postgres
@@ -902,8 +940,8 @@ def main():
 		# get the hosts and their graphs from selected host group
 		graphsList = getGraphsList(hostgroupid)
 		itemsList = getItemsList(hostgroupid)
-		sys.exit(1)
 		generateReport(hostgroupid, hostgroupname, graphsList, itemsList)
+	rootLogger.info('============================= Ending MIOS-REPORT ====================================')
 
 if  __name__ == "__main__":
 	global config
