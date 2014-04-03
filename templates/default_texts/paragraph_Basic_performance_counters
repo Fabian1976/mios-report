@@ -1,0 +1,3 @@
+De grafieken in dit hoofdstuk zijn grafische weergaves van "basic performance counters".
+Deze counters zeggen niets over de prestaties van een applicatie of platform, maar geven aan of componenten uit de infrastructuur op de top van hun kunnen, of wellicht eroverheen worden geduwd.
+De basic performance counters worden per (relevante) server gerapporteerd over de afgelopen maand. Over het algemeen worden deze counters gemeten op OS-niveau:

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "3.0"
+__version__   = "3.1"
 
 import ConfigParser
 import sys, os
@@ -120,7 +120,7 @@ class Config:
 		except:
 			self.hostgroupid = None
 		try:
-			self.in_test = self.customer_config.get('report', 'in_test')
+			self.in_test = int(self.customer_config.get('report', 'in_test'))
 		except:
 			self.in_test = 0
 		try:
@@ -431,7 +431,7 @@ def getUptimeGraph(itemid):
 	rootLogger.info("getUptimeGraph - Fetching uptime graphs")
 	day, month, year = map(int, config.report_start_date.split('-'))
 
-	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	start_epoch = int(time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))
 	end_epoch = start_epoch + config.report_period
 	rootLogger.info("getUptimeGraph - Fetching total polling items for item: %s, epoch between %s and %s" % (itemid, start_epoch, end_epoch))
 	polling_total = postgres.execute(config.postgres_dbname, "select count(*) from history_uint where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))[0][0]
@@ -545,7 +545,7 @@ def getUptimeGraph(itemid):
 		
 def getMaintenancePeriods(hostgroupid):
 	day, month, year = map(int, config.report_start_date.split('-'))
-	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	start_epoch = int(time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))
 	end_epoch = start_epoch + config.report_period
 	rootLogger.info("getMaintenancePeriods - Fetching maintenance rows for hostgroupid: %s, epoch between %s and %s" % (hostgroupid, start_epoch, end_epoch))
 	maintenance_rows = postgres.execute(config.postgres_dbname, "select maintenances.name || '. ' || maintenances.description, start_date, (start_date + period) from timeperiods\
@@ -568,7 +568,7 @@ def getItemsList(hostgroupid):
 def getBackupList(itemid):
 	day, month, year = map(int, config.report_start_date.split('-'))
 
-	start_epoch = time.mktime((year, month, day, 0, 0, 0, 0, 0, 0))
+	start_epoch = int(time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))
 	end_epoch = start_epoch + config.report_period
 
 	if config.in_test:
@@ -578,6 +578,15 @@ def getBackupList(itemid):
 		rootLogger.info("getBackupList - Not in test mode. Fetching backuplist from database")
 		backupList = postgres.execute(config.postgres_dbname, "select value from history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
 	return backupList
+
+def getText(filename):
+	try:
+		f = open(filename, 'r')
+		full_text = f.read()
+		f.close()
+	except:
+		full_text = ''
+	return full_text
 
 def sendReport(filename, hostgroupname):
 	import smtplib
@@ -667,13 +676,18 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
 	body.append(docx.heading("MIOS monitoring", 1))
 	body.append(docx.heading("Beschikbaarheid business services", 2))
-	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business services grafisch weergegeven. Business services worden gezien als de services die toegang verschaffen tot core-functionaliteit."))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_services')))
 	body.append(docx.heading("Web-check", 3))
 	for record in graphData:
 		if record['graphtype'] == 'w':
 			rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
 			getGraph(record['graphid'], 'w')
-			relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
+			try:
+				relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
+			except:
+				rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+				time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+				relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
 			body.append(picpara)
 			body.append(docx.figureCaption(record['graphname']))
 	hosts = []
@@ -686,15 +700,19 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			uptime_items.append(record['itemname'])
 
 	body.append(docx.heading("Beschikbaarheid business componenten", 2))
-	body.append(docx.paragraph("In deze paragraaf wordt de beschikbaarheid van de business componenten grafisch weergegeven. Business componenten zijn de componenten die samen een business service vormen."))
-	body.append(docx.paragraph("Een overzicht van de omgeving met aanwezige business componenten is beschikbaar in hoofdstuk 7."))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_componenten')))
 	for item in uptime_items:
 		body.append(docx.heading(item, 3))
 		for record in itemData:
 			if record['itemname'] == item:
 				rootLogger.info("generateReport - Generating uptime graph '%s' from item '%s'" % (record['itemname'], item))
 				downtime_periods = getUptimeGraph(record['itemid'])
-				relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
+				try:
+					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
+				except:
+					rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+					time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
 				body.append(picpara)
 #				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
@@ -726,9 +744,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
 	# Performance grafieken
 	body.append(docx.heading("Basic performance counters", 2))
-	body.append(docx.paragraph('De grafieken in dit hoofdstuk zijn grafische weergaves van "basic performance counters". '
-	 'Deze counters zeggen niets over de prestaties van een applicatie of platform, maar geven aan of componenten uit de infrastructuur op de top van hun kunnen, of wellicht eroverheen worden geduwd. '
-	 'De basic performance counters worden per (relevante) server gerapporteerd over de afgelopen maand. Over het algemeen worden deze counters gemeten op OS-niveau:'))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Basic_performance_counters')))
 	points = [	'CPU-load: geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + actieve processen op de CPU;',
 			'CPU utilization: dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, onderverdeeld naar type CPU-gebruik;',
 			'Memory utilization: dit getal geeft aan hoeveel memory er op de server in gebruik is, onderverdeeld naar type memory-gebruik;',
@@ -749,7 +765,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating performance graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 'p')
-					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
+					try:
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
+					except:
+						rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+						time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 #			body.append(docx.pagebreak(type='page', orient='portrait'))
@@ -763,7 +784,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
 	# Trending grafieken
 	body.append(docx.heading("Trending", 2))
-	body.append(docx.paragraph('De volgende paragrafen laten trending-grafieken zien. Deze grafieken zijn gemaakt op basis van een selectie van basic performance counters en beslaan een periode van minimaal 6 maanden, of sinds de "go-live" van de infrastructuur/business service. Met behulp van de grafieken en strategische planningen moeten voorspellingen kunnen worden gedaan over de toekomstig beschikbare capaciteit van infrastructuur-componenten. Eventuele (kritieke) grenswaarden zijn met een rode lijn aangegeven.'))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Trending')))
 	for host in hosts:
 		host_has_graphs = 0
 		for record in graphData:
@@ -775,7 +796,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating trending graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 't')
-					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
+					try:
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
+					except:
+						rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+						time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 
@@ -787,12 +813,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
 
 	body.append(docx.heading("Advanced performance counters", 2))
-	body.append(docx.paragraph('Er zijn geen overzichten van advanced performance counters in het overzicht opgenomen. Advanced performance counters zijn wel zichtbaar in de beschikbaar gestelde dashboards (screens) in de monitoring-portal (https://mios.vermont24-7.com).'))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
 	rootLogger.info("generateReport - Done generating graphs...")
 
 	# Backup overzicht
 	body.append(docx.heading("Backup overzicht", 2))
-	body.append(docx.paragraph('Onderstaande tabel geeft een overzicht van de backupstatussen van de Promedico database-backup. Deze backup wordt middels Oracle RMAN uitgevoerd en naar een door AZV beschikbaar gestelde NFS-disk geschreven. De RMAN-backups, evenals de backups van de virtual machines, worden verder door AZV uitgevoerd. Er is voor Vermont geen inzicht in deze backups, deze kunnen vooralsnog dan ook niet worden gerapporteerd.'))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
 	body.append(docx.heading("Overzicht", 3))
 	if not config.report_backup_item:
 		body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
@@ -820,10 +846,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		tbl_rows.append(['',''])
 		body.append(docx.table(tbl_rows, colw=[1188,7979], firstColFillColor='E3F3B7'))
 
-	body.append(docx.heading("Ticket-overzicht", 1))
-	body.append(docx.paragraph("Er wordt geen gebruik gemaakt van het Vermont ticket-systeem, in overleg is besloten Promedico's centrale ticket-systeem te gebruiken. Rapportages kunnen niet door Vermont worden verstrekt."))
+	body.append(docx.heading("Ticket overzicht", 1))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Ticket_overzicht')))
 
 	body.append(docx.heading("Aktiepunten", 1))
+	body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Aktiepunten')))
 
 	body.append(docx.heading("Definities/afkortingen", 1))
 	tbl_rows = []
