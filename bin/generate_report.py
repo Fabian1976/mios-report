@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__    = "Fabian van der Hoeven"
 __copyright__ = "Copyright (C) 2013 Vermont 24x7"
-__version__   = "3.0"
+__version__   = "3.1"
 
 import ConfigParser
 import sys, os
@@ -682,8 +682,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 		if record['graphtype'] == 'w':
 			rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
 			getGraph(record['graphid'], 'w')
-			time.sleep(1) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
-			relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
+			try:
+				relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
+			except:
+				rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+				time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+				relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
 			body.append(picpara)
 			body.append(docx.figureCaption(record['graphname']))
 	hosts = []
@@ -703,7 +707,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 			if record['itemname'] == item:
 				rootLogger.info("generateReport - Generating uptime graph '%s' from item '%s'" % (record['itemname'], item))
 				downtime_periods = getUptimeGraph(record['itemid'])
-				relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
+				try:
+					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
+				except:
+					rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+					time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
 				body.append(picpara)
 #				body.append(docx.figureCaption(record['itemname']))
 				tbl_rows = []
@@ -756,8 +765,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating performance graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 'p')
-					time.sleep(1) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
-					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
+					try:
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
+					except:
+						rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+						time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 #			body.append(docx.pagebreak(type='page', orient='portrait'))
@@ -783,8 +796,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 				if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
 					rootLogger.info("generateReport - Generating trending graph '%s' from host '%s'" % (record['graphname'], host))
 					getGraph(record['graphid'], 't')
-					time.sleep(1) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
-					relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
+					try:
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
+					except:
+						rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+						time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+						relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
 					body.append(picpara)
 					body.append(docx.figureCaption(record['graphname']))
 
