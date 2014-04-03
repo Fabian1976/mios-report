@@ -120,7 +120,7 @@ class Config:
 		except:
 			self.hostgroupid = None
 		try:
-			self.in_test = self.customer_config.get('report', 'in_test')
+			self.in_test = int(self.customer_config.get('report', 'in_test'))
 		except:
 			self.in_test = 0
 		try:
