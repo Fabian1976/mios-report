@@ -493,7 +493,7 @@ def main():
 		menu_hosts['title'] = host
 		menu_hosts['hostid'] = hosts[host][0]
 		menu_hosts['type'] = 'MENU'
-		menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph, "t" for a trend graph and "w" for a web-check graph'
+		menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph, "t" for a trend graph, "r" for both and "w" for a web-check graph'
 		graphs = hosts[host][1]
 		host_options = []
 		for graph in sorted(graphs.iterkeys()):
