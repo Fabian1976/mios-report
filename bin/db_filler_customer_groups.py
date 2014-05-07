@@ -289,33 +289,6 @@ def createCustomer():
 	else:
 		print "Then not"
 
-def getHosts(hostgroupid):
-	hosts = {}
-	for host in zapi.host.get({ "output": "extend", "groupids" : hostgroupid }):
-		hosts[host['name']] = (host['hostid'], getCheckItems(host['hostid']))
-	items_in_db = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_uptime where hostgroupid = %s" % hostgroupid)[0][0]
-	import copy
-	hosts_temp = copy.deepcopy(hosts)
-	if items_in_db > 0:
-		items_in_db = postgres.execute(config.postgres_dbname, "select hostid, itemid from mios_report_uptime where hostgroupid = %s" % hostgroupid)
-		for host in hosts:
-			for hnum in range(len(items_in_db)):
-				if int(hosts[host][0]) == int(items_in_db[hnum][0]):
-					items = hosts[host][1]
-					for item in items:
-						if int(items[item][0]) == int(items_in_db[hnum][1]):
-							hosts_temp[host][1][item] = (items_in_db[hnum][1], '1')
-	hosts = hosts_temp
-	return hosts
-
-def getCheckItems(hostid):
-	items = {}
-	selected = '0'
-#	for item in zapi.item.get({ "output": "extend",  "hostids":hostid, "search": { "name": "Check -*"}, "searchWildcardsEnabled":1 }):
-	for item in zapi.item.get({ "output": "extend",  "hostids":hostid, "filter": { "valuemapid": "1"} }): # Valuemapid 1 = "Service state" (0 = down, 1 = up)
-		items[item['name']] = (item['itemid'], selected)
-	return items
-
 def runmenu(menu, parent):
 
 	h = curses.color_pair(1) #h is the coloring for a highlighted menu option
@@ -323,7 +296,7 @@ def runmenu(menu, parent):
 
 	# work out what text to display as the last menu option
 	if parent is None:
-		lastoption = "Done selecting items!"
+		lastoption = "Done selecting hostgroups!"
 	else:
 		lastoption = "Back to menu '%s'" % parent['title']
 
@@ -347,14 +320,11 @@ def runmenu(menu, parent):
 				textstyle = n
 				if pos==index:
 					textstyle = h
-				if 'itemid' in menu['options'][index]:
-					if menu['options'][index]['selected'] == '0':
-						check = '[ ]'
-					elif menu['options'][index]['selected'] == '1':
-						check = '[*]'
-					screen.addstr(5+index,4, "%-50s %s" % (menu['options'][index]['title'], check), textstyle)
-				else:
-					screen.addstr(5+index,4, "%s" % menu['options'][index]['title'], textstyle)
+				if menu['options'][index]['selected'] == '0':
+					check = '[ ]'
+				elif menu['options'][index]['selected'] == '1':
+					check = '[*]'
+				screen.addstr(5+index,4, "%-50s %s" % (menu['options'][index]['title'], check), textstyle)
 			# Now display Exit/Return at bottom of menu
 			textstyle = n
 			if pos==optioncount:
@@ -382,11 +352,10 @@ def runmenu(menu, parent):
 			else:
 				pos = optioncount
 		elif x == 32: # space
-			if 'itemid' in menu['options'][pos]:
-				if menu['options'][pos]['selected'] == '0':
-					menu['options'][pos]['selected'] = '1'
-				else:
-					menu['options'][pos]['selected'] = '0'
+			if menu['options'][pos]['selected'] == '0':
+				menu['options'][pos]['selected'] = '1'
+			else:
+				menu['options'][pos]['selected'] = '0'
 			screen.refresh()
 		elif x != ord('\n'):
 			curses.flash()
@@ -416,57 +385,50 @@ def doMenu(menu_data):
 	# Change this to use different colors when highlighting
 	curses.init_pair(1,curses.COLOR_BLACK, curses.COLOR_WHITE) # Sets up color pair #1, it does black text with white background
 
-	processmenu(menu_data)
+	try:
+		processmenu(menu_data)
+	except:
+		curses.endwin()
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def checkItems(hostgroupid, hostgroupname, menu_data):
-	any_items = 0
-	num_hosts = len(menu_data['options'])
-	print "Hostgroup '%s':" % hostgroupname
-	for host in range(num_hosts):
-		print '\t%s' % menu_data['options'][host]['title']
-		num_items = len(menu_data['options'][host]['options'])
-		selected_items_host = 0
-		for item in range(num_items):
-			if menu_data['options'][host]['options'][item]['selected'] != '0':
-				selected_items_host += 1
-		if selected_items_host > 0:
-			any_items = 1
-			for item in range(num_items):
-				if menu_data['options'][host]['options'][item]['selected'] != '0':
-					print "\t\t%s" % (menu_data['options'][host]['options'][item]['title'])
-		else:
-			print "\t\tNo items selected for this host"
-	if any_items:
+def checkItems(customer_id, customerName, menu_data):
+	any_hostgroups = 0
+	num_hostgroups = len(menu_data['options'])
+
+	print "Customer '%s':" % customerName
+	for hostgroup in range(num_hostgroups):
+		if menu_data['options'][hostgroup]['selected'] != '0':
+			any_hostgroups = 1
+			print "\t%s" % (menu_data['options'][hostgroup]['title'])
+
+	if any_hostgroups:
 		antwoord = ""
 		while antwoord not in ["yes", "Yes", "no", "No"]:
 			try:
-				antwoord = str(raw_input('\nDo you want to store these items in the database (BEWARE: the old setting for this hostgroup will be overwritten by these new ones)? (Yes/No): '))
+				antwoord = str(raw_input('\nDo you want to store these hostgroups in the database (BEWARE: the old setting for this customer will be overwritten by these new ones)? (Yes/No): '))
 			except KeyboardInterrupt: # Catch CTRL-C
 				pass
 		if antwoord in ["yes", "Yes"]:
 			print "OK"
-			storeItems(hostgroupid, hostgroupname, menu_data)
+			storeItems(customer_id, customerName, menu_data)
 		else:
 			print "Then not"
 	else:
-		print "\nNo items selected. Nothing to do."
+		print "\nNo hostgroups selected. Nothing to do."
 
-def storeItems(hostgroupid, hostgroupname, menu_data):
-	num_hosts = len(menu_data['options'])
-	postgres.execute(config.postgres_dbname, "delete from mios_report_uptime where hostgroupid = %s" % hostgroupid)
+def storeItems(customer_id, customerName, menu_data):
+	num_hostgroups = len(menu_data['options'])
+	postgres.execute(config.postgres_dbname, "delete from mios_customer_groups where customer_id = %s" % customer_id)
 	# do not commit! stay in same transaction so rollback will work if an error occurs
-	for host in range(num_hosts):
-		num_items = len(menu_data['options'][host]['options'])
-		for item in range(num_items):
-			if menu_data['options'][host]['options'][item]['selected'] != '0':
-				try:
-					postgres.execute(config.postgres_dbname, "insert into mios_report_uptime (hostgroupid, hostgroupname, hostid, hostname, itemid, itemname) values (%s, '%s', %s, '%s', %s, '%s')" % (hostgroupid, hostgroupname, menu_data['options'][host]['hostid'], menu_data['options'][host]['title'], menu_data['options'][host]['options'][item]['itemid'], menu_data['options'][host]['options'][item]['title']))
-				except:
-					print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
-					postgres.rollback(config.postgres_dbname)
-					postgres.closeConnection(config.postgres_dbname)
-					raise
+	for hostgroup in range(num_hostgroups):
+		if menu_data['options'][hostgroup]['selected'] != '0':
+			try:
+				postgres.execute(config.postgres_dbname, "insert into mios_customer_groups (customer_id, hostgroupid) values (%s, %s)" % (customer_id, menu_data['options'][hostgroup]['hostgroupid']))
+			except:
+				print "\nNieuwe waardes NIET toegevoegd aan database. Er ging iets mis.\nDe transactie wordt terug gedraaid.\n"
+				postgres.rollback(config.postgres_dbname)
+				postgres.closeConnection(config.postgres_dbname)
+				raise
 	postgres.commit(config.postgres_dbname)
 	postgres.closeConnection(config.postgres_dbname)
 
@@ -510,41 +472,25 @@ def main():
 			os.system('read -N 1 -s')
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
-	print "Option: %s" % option_nr
-	print "Customer ID: %s" % customer_id
-	print "Customer name: %s" % customerName
 
 	# get hostgroups
-	hostGroups = getHostgroups(customer_id)
-	print hostGroups
+	hostgroups = getHostgroups(customer_id)
 
-#	os.system('clear')
-	sys.exit(1)
 	# Build the menus
-	menu = {'title': 'Hostgroups list', 'type': 'MENU', 'subtitle': 'Select hostgroups...'}
+	menu = {'title': 'Hostgroups list', 'type': 'MENU', 'subtitle': 'Select the hostgroups for this customer. Use <SPACE> to mark a hostgroup'}
 	menu_options = []
 	for hostgroup in sorted(hostgroups.iterkeys()):
 		menu_hosts = {}
-		menu_hosts['title'] = host
-		menu_hosts['hostid'] = hosts[host][0]
-		menu_hosts['type'] = 'MENU'
-		menu_hosts['subtitle'] = 'Select the items for the uptime graphs. Use <SPACE> to mark an item'
-		items = hosts[host][1]
-		host_options = []
-		for item in sorted(items.iterkeys()):
-			menu_items = {}
-			menu_items['title'] = str(item)
-			menu_items['type'] = 'ITEMID'
-			menu_items['itemid'] = items[item][0]
-			menu_items['selected'] = items[item][1]
-			host_options.append(menu_items)
-		menu_hosts['options'] = host_options
+		menu_hosts['title'] = hostgroups[hostgroup][0]
+		menu_hosts['hostgroupid'] = hostgroups[hostgroup][1]
+		menu_hosts['type'] = 'HOSTGROUPID'
+		menu_hosts['selected'] = '0' # Moet nog opgehaald worden uit de database bij getHostgroups!
 		menu_options.append(menu_hosts)
 	menu['options'] = menu_options
 
 	doMenu(menu)
 	os.system('clear')
-	checkItems(hostgroupid, hostgroupname, menu)
+	checkItems(customer_id, customerName, menu)
 
 if  __name__ == "__main__":
 	global config
