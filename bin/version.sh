@@ -1,7 +1,7 @@
 #!/bin/bash
 # Definieer het bestand waar de versie in aangepast moet worden
 applicatie="mios-report"
-pad_applicaties="./generate_report.py ./db_filler_report_graphs.py ./db_filler_report_uptime_items.py"
+pad_applicaties="./generate_report.py ./db_filler_report_graphs.py ./db_filler_report_uptime_items.py ./db_filler_customer_groups.py"
 #pad_rpmspec="../rpmbuild/SPECS/$applicatie.spec"
 
 function gebruik {
