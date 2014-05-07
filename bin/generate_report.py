@@ -576,7 +576,7 @@ def getBackupList(itemid):
 		backupList = [['15-11-2013 00:59:03;15-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL'] ,['14-11-2013 00:59:03;14-11-2013 01:10:15;00:11:12;COMPLETED;DB FULL']]
 	else:
 		rootLogger.info("getBackupList - Not in test mode. Fetching backuplist from database")
-		backupList = postgres.execute(config.postgres_dbname, "select value from history_text where itemid = %s and clock between %s and %s" % (itemid, start_epoch, end_epoch))
+		backupList = postgres.execute(config.postgres_dbname, "select value from history_text where itemid = %s and clock between %s and %s order by clock" % (itemid, start_epoch, end_epoch))
 	return backupList
 
 def getText(filename):
