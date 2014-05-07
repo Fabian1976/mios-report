@@ -18,6 +18,7 @@ sys.path.append(mreport_home + '/lib')
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 
 import curses, os #curses is the interface for capturing key presses on the menu, os launches the files
+import copy #used for deepcopy. It duplicates object in stead of referencing it
 
 postgres = None
 
@@ -262,7 +263,14 @@ def getHostgroups(customer_id):
 	hostgroups = {}
 	for hostgroup in zapi.hostgroup.get({ "output": "extend", "filter": { "internal": "0"} }):
 		teller+=1
-		hostgroups[teller] = (hostgroup['name'], hostgroup['groupid'])
+		hostgroups[teller] = (hostgroup['name'], hostgroup['groupid'], '0')
+	hostgroups_in_db = postgres.execute(config.postgres_dbname, "select count(*) from mios_customer_groups where customer_id = %s" % customer_id)[0][0]
+	if hostgroups_in_db > 0:
+		hostgroups_in_db = postgres.execute(config.postgres_dbname, "select hostgroupid from mios_customer_groups where customer_id = %s" % customer_id)
+		for hostgroup in range(1,teller+1):
+			for hostgroup_in_db in range(len(hostgroups_in_db)):
+				if int(hostgroups[hostgroup][1]) == int(hostgroups_in_db[hostgroup_in_db][0]):
+					hostgroups[hostgroup] = (hostgroups[hostgroup][0], hostgroups[hostgroup][1], '1')
 	return hostgroups
 
 def getCustomers():
@@ -389,19 +397,19 @@ def doMenu(menu_data):
 		processmenu(menu_data)
 	except:
 		curses.endwin()
+		raise
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def checkItems(customer_id, customerName, menu_data):
+def checkItems(customer_id, customerName, menu_data, org_menu_data):
 	any_hostgroups = 0
 	num_hostgroups = len(menu_data['options'])
 
 	print "Customer '%s':" % customerName
 	for hostgroup in range(num_hostgroups):
 		if menu_data['options'][hostgroup]['selected'] != '0':
-			any_hostgroups = 1
 			print "\t%s" % (menu_data['options'][hostgroup]['title'])
 
-	if any_hostgroups:
+	if menu_data <> org_menu_data:
 		antwoord = ""
 		while antwoord not in ["yes", "Yes", "no", "No"]:
 			try:
@@ -414,7 +422,7 @@ def checkItems(customer_id, customerName, menu_data):
 		else:
 			print "Then not"
 	else:
-		print "\nNo hostgroups selected. Nothing to do."
+		print "\nNothing changed. Nothing to do."
 
 def storeItems(customer_id, customerName, menu_data):
 	num_hostgroups = len(menu_data['options'])
@@ -473,6 +481,9 @@ def main():
 		except KeyboardInterrupt: # Catch CTRL-C
 			pass
 
+	os.system('clear')
+	print "The hostgroups are being fetched..."
+
 	# get hostgroups
 	hostgroups = getHostgroups(customer_id)
 
@@ -484,13 +495,15 @@ def main():
 		menu_hosts['title'] = hostgroups[hostgroup][0]
 		menu_hosts['hostgroupid'] = hostgroups[hostgroup][1]
 		menu_hosts['type'] = 'HOSTGROUPID'
-		menu_hosts['selected'] = '0' # Moet nog opgehaald worden uit de database bij getHostgroups!
+		menu_hosts['selected'] = hostgroups[hostgroup][2]
 		menu_options.append(menu_hosts)
 	menu['options'] = menu_options
+	#Make copy of original loaded menu (before possible changes)
+	org_menu = copy.deepcopy(menu)
 
 	doMenu(menu)
 	os.system('clear')
-	checkItems(customer_id, customerName, menu)
+	checkItems(customer_id, customerName, menu, org_menu)
 
 if  __name__ == "__main__":
 	global config
