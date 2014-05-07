@@ -18,6 +18,7 @@ sys.path.append(mreport_home + '/lib')
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 
 import curses, os #curses is the interface for capturing key presses on the menu, os launches the files
+import copy #used for deepcopy. It duplicates object in stead of referencing it
 
 postgres = None
 
@@ -263,7 +264,6 @@ def getHosts(hostgroupid):
 	for host in zapi.host.get({ "output": "extend", "groupids" : [ 4, hostgroupid ]}):
 		hosts[host['name']] = (host['hostid'], getGraphs(host['hostid']))
 	graphs_in_db = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_graphs where hostgroupid = %s" % hostgroupid)[0][0]
-	import copy
 	hosts_temp = copy.deepcopy(hosts)
 	if graphs_in_db > 0:
 		graphs_in_db = postgres.execute(config.postgres_dbname, "select hostid, graphid, graphtype from mios_report_graphs where hostgroupid = %s" % hostgroupid)
@@ -414,8 +414,7 @@ def doMenu(menu_data):
 	processmenu(menu_data)
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def checkGraphs(hostgroupid, hostgroupname, menu_data):
-	any_graphs = 0
+def checkGraphs(hostgroupid, hostgroupname, menu_data, org_menu_data):
 	num_hosts = len(menu_data['options'])
 	print "Hostgroup '%s':" % hostgroupname
 	for host in range(num_hosts):
@@ -426,7 +425,6 @@ def checkGraphs(hostgroupid, hostgroupname, menu_data):
 			if menu_data['options'][host]['options'][graph]['selected'] != '0':
 				selected_graphs_host += 1
 		if selected_graphs_host > 0:
-			any_graphs = 1
 			for graph in range(num_graphs):
 				if menu_data['options'][host]['options'][graph]['selected'] == 'p':
 					graph_type = "Performance graph"
@@ -440,7 +438,7 @@ def checkGraphs(hostgroupid, hostgroupname, menu_data):
 					print "\t\t%-18s: %s" % (graph_type, menu_data['options'][host]['options'][graph]['title'])
 		else:
 			print "\t\tNo graphs selected for this host"
-	if any_graphs:
+	if menu_data <> org_menu_data:
 		antwoord = ""
 		while antwoord not in ["yes", "Yes", "no", "No"]:
 			try:
@@ -453,7 +451,7 @@ def checkGraphs(hostgroupid, hostgroupname, menu_data):
 		else:
 			print "Then not"
 	else:
-		print "\nNo graphs selected. Nothing to do."
+		print "\nNothing changed. Nothing to do."
 
 def storeGraphs(hostgroupid, hostgroupname, menu_data):
 
@@ -506,10 +504,12 @@ def main():
 		menu_hosts['options'] = host_options
 		menu_options.append(menu_hosts)
 	menu['options'] = menu_options
+	#Make copy of original loaded menu (before possible changes)
+	org_menu = copy.deepcopy(menu)
 
 	doMenu(menu)
 	os.system('clear')
-	checkGraphs(hostgroupid, hostgroupname, menu)
+	checkGraphs(hostgroupid, hostgroupname, menu, org_menu)
 
 if  __name__ == "__main__":
 	global config

@@ -18,6 +18,7 @@ sys.path.append(mreport_home + '/lib')
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 
 import curses, os #curses is the interface for capturing key presses on the menu, os launches the files
+import copy #used for deepcopy. It duplicates object in stead of referencing it
 
 postgres = None
 
@@ -263,7 +264,6 @@ def getHosts(hostgroupid):
 	for host in zapi.host.get({ "output": "extend", "groupids" : hostgroupid }):
 		hosts[host['name']] = (host['hostid'], getCheckItems(host['hostid']))
 	items_in_db = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_uptime where hostgroupid = %s" % hostgroupid)[0][0]
-	import copy
 	hosts_temp = copy.deepcopy(hosts)
 	if items_in_db > 0:
 		items_in_db = postgres.execute(config.postgres_dbname, "select hostid, itemid from mios_report_uptime where hostgroupid = %s" % hostgroupid)
@@ -388,8 +388,7 @@ def doMenu(menu_data):
 	processmenu(menu_data)
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
-def checkItems(hostgroupid, hostgroupname, menu_data):
-	any_items = 0
+def checkItems(hostgroupid, hostgroupname, menu_data, org_menu_data):
 	num_hosts = len(menu_data['options'])
 	print "Hostgroup '%s':" % hostgroupname
 	for host in range(num_hosts):
@@ -400,13 +399,12 @@ def checkItems(hostgroupid, hostgroupname, menu_data):
 			if menu_data['options'][host]['options'][item]['selected'] != '0':
 				selected_items_host += 1
 		if selected_items_host > 0:
-			any_items = 1
 			for item in range(num_items):
 				if menu_data['options'][host]['options'][item]['selected'] != '0':
 					print "\t\t%s" % (menu_data['options'][host]['options'][item]['title'])
 		else:
 			print "\t\tNo items selected for this host"
-	if any_items:
+	if menu_data <> org_menu_data:
 		antwoord = ""
 		while antwoord not in ["yes", "Yes", "no", "No"]:
 			try:
@@ -419,7 +417,7 @@ def checkItems(hostgroupid, hostgroupname, menu_data):
 		else:
 			print "Then not"
 	else:
-		print "\nNo items selected. Nothing to do."
+		print "\nNothing changed. Nothing to do."
 
 def storeItems(hostgroupid, hostgroupname, menu_data):
 	num_hosts = len(menu_data['options'])
@@ -471,10 +469,12 @@ def main():
 		menu_hosts['options'] = host_options
 		menu_options.append(menu_hosts)
 	menu['options'] = menu_options
+	#Make copy of original loaded menu (before possible changes)
+	org_menu = copy.deepcopy(menu)
 
 	doMenu(menu)
 	os.system('clear')
-	checkItems(hostgroupid, hostgroupname, menu)
+	checkItems(hostgroupid, hostgroupname, menu, org_menu)
 
 if  __name__ == "__main__":
 	global config
