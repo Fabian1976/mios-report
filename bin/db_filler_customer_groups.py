@@ -401,7 +401,6 @@ def doMenu(menu_data):
 	curses.endwin() #VITAL!  This closes out the menu system and returns you to the bash prompt.
 
 def checkItems(customer_id, customerName, menu_data, org_menu_data):
-	any_hostgroups = 0
 	num_hostgroups = len(menu_data['options'])
 
 	print "Customer '%s':" % customerName
