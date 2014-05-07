@@ -25,6 +25,26 @@ create table mios_report_uptime
 )
 tablespace mios_table;
 
+create table mios_customers
+(
+  customer_id numeric(4,0) not null,
+  name character varying(100),
+  constraint pk_mios_customers primary key(customer_id)
+  using index tablespace mios_index
+)
+tablespace mios_table;
+
+create table mios_customer_groups
+(
+  customer_id numeric(4,0) not null,
+  hostgroupid numeric(4,0) not null,
+  constraint pk_mios_customer_groups primary key (customer_id, hostgroupid)
+  using index tablespace mios_index
+)
+tablespace mios_table;
+
+create sequence mios_customers_seq start 1;
+
 create index mreportgrph_hostgroupid on mios_report_graphs(hostgroupid);
 create index mreportuptm_hostgroupid on mios_report_uptime(hostgroupid);
 
