@@ -353,7 +353,7 @@ def figureCaption(captiontext, lang='en'):
 	paragraph.append(run8)
 	return paragraph
 
-def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={'all': {'color': 'auto', 'val': 'single', 'space': '0', 'sz': '4'}}, celstyle=None, firstColFillColor='auto'):
+def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto', borders={'all': {'color': 'auto', 'val': 'single', 'space': '0', 'sz': '4'}}, celstyle=None, headingFillColor='auto', firstColFillColor='auto'):
 	"""
 	Return a table element based on specified parameters
 
@@ -389,6 +389,7 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 						  supported keys:
 						  'align' : specify the alignment, see paragraph
 									documentation.
+	@param str  headingFillColor:  Specify a fill color for the first row of the table (if heading=True)
 	@param str  firstColFillColor: Specify a fill color for the first column of the table
 	@return lxml.etree:   Generated XML etree element
 	"""
@@ -441,7 +442,8 @@ def table(contents, heading=True, colw=None, cwunit='dxa', tblw=0, twunit='auto'
 #								   'color': 'auto',
 								   'color': 'FFFFFF',
 #								   'fill': 'FFFFFF',
-								   'fill': 'ABDDFF'
+#								   'fill': 'ABDDFF'
+								   'fill': headingFillColor
 #								   'themeFill': 'text2',
 #								   'themeFillTint': '99'
 								   })
