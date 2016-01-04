@@ -874,8 +874,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 	tbl_rows.append([row3_col1, row3_col2])
 	body.append(docx.table(tbl_rows, colw=[1648,7529], firstColFillColor='E3F3B7'))
 
-	body.append(docx.heading("Omgevingsoverzicht", 1))
 	if config.report_infra_picture:
+		body.append(docx.heading("Omgevingsoverzicht", 1))
 		relationships, picpara = docx.picture(relationships, mreport_home + '/templates/' + config.report_infra_picture, config.report_infra_picture.split('.')[0].replace('_', ' '), 450)
 		body.append(picpara)
 		body.append(docx.figureCaption(config.report_infra_picture.split('.')[0].replace('_', ' ')))
