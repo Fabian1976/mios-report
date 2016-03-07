@@ -12,5 +12,5 @@ password=m0n1t0R
 
 [email]
 server=localhost
-sender=mios@vermont24-7.com
-receiver=fabian.vanderhoeven@vermont24-7.com
+sender=mios@example.com
+receiver=user@example.com
