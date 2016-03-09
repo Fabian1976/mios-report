@@ -21,3 +21,9 @@ title=Company service rapport
 backup_item=25480
 # A picture with the infrastructure overview of a customer. It is stored in the templates folder
 infra_picture=Infrastructure_overview.png
+# Now we can configure a "Custom" section. This section will be generated before all the other graphs to display application specific graphs (for example, active user sessions)
+# When custom is set to 1 (meaning YES) the following line must also exist:
+# custom_title = Title of chapter
+# A file with the paragraph text (called "paragraph_Custom") must also exist in folder /opt/mios/mios-report/templates/default_texts/
+custom = 1
+custom_title = Applicatie gebruik

@@ -49,6 +49,9 @@ class Config:
         self.report_graph_width = ''
         self.report_title = ''
         self.report_backup_item = None
+        self.report_infra_picture= ''
+        self.custom_section      = 0
+        self.custom_title        = ''
         try:
             self.mreport_home = os.environ['MREPORT_HOME']
         except:
@@ -228,6 +231,15 @@ class Config:
             self.report_infra_picture = self.customer_config.get('report', 'infra_picture')
         except:
             self.report_infra_picture = None
+        try:
+            self.custom_section = int(self.customer_config.get('report', 'custom'))
+        except:
+            self.custom_section = 0
+        if self.custom_section == 1:
+            try:
+                self.custom_title = self.customer_config.get('report', 'custom_title')
+            except:
+                self.custom_title = "None specified"
 
 
 class Postgres(object):
@@ -723,6 +735,25 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.heading("Aktiepunten", 2))
 
     body.append(docx.heading("MIOS monitoring", 1))
+    #Custom section
+    #First check if a custom section is configured
+    if config.custom_section == 1:
+        #Then generate custom chapter
+        body.append(docx.heading(config.custom_title, 2))
+        body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Custom')))
+        for record in graphData:
+            if record['graphtype'] == 'c':
+                rootLogger.info("generateReport - Generating custom graph '%s'" % record['graphname'])
+                getGraph(record['graphid'], 'c')
+                body.append(docx.heading(record['graphname'], 3))
+                try:
+                    relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_c.png', record['graphname'], 450)
+                except:
+                    rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+                    time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+                    relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_c.png', record['graphname'], 450)
+                body.append(picpara)
+                body.append(docx.figureCaption(record['graphname']))
     body.append(docx.heading("Beschikbaarheid business services", 2))
     body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_services')))
     body.append(docx.heading("Web-check", 3))
