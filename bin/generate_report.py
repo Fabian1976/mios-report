@@ -710,7 +710,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
             tbl_row.append(description)
             tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
             tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
-            tbl_row.append(hms(end_period - start_period))
+            tbl_row.append(dhms(end_period - start_period))
             maintenance_tbl_rows.append(tbl_row)
             body.append(docx.table(maintenance_tbl_rows))
     else:
@@ -771,7 +771,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                     (start_period, end_period) = downtime_periods[num]
                     tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
                     tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
-                    tbl_row.append(hms(end_period - start_period))
+                    tbl_row.append(dhms(end_period - start_period))
                     tbl_rows.append(tbl_row)
                 if len(downtime_periods) > 0:
                     body.append(docx.table(tbl_rows))
@@ -953,11 +953,13 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
         rootLogger.warning("No email receiver specified. Report will not be sent by email. Download it manually")
 
 
-def hms(seconds):
+def dhms(seconds):
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
-    hours %= 24
-    if hours != 0:
+    days, hours = divmod(hours, 24)
+    if days != 0:
+        result = str(days) + " dagen, " + str(hours) + " uur, " + str(minutes) + " minuten en " + str(seconds) + " seconden"
+    elif hours != 0:
         result = str(hours) + " uur, " + str(minutes) + " minuten en " + str(seconds) + " seconden"
     elif minutes != 0:
         result = str(minutes) + " minuten en " + str(seconds) + " seconden"
