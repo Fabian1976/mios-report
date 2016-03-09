@@ -1,5 +1,5 @@
 -- Run as user Zabbix
-grant usage on schema zabbix to mios;
+grant usage on schema public to mios;
 grant select on history_uint to mios;
 grant select on history_text to mios;
 grant select on timeperiods to mios;
