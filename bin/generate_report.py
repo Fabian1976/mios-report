@@ -49,9 +49,9 @@ class Config:
         self.report_graph_width = ''
         self.report_title = ''
         self.report_backup_item = None
-        self.report_infra_picture= ''
-        self.custom_section      = 0
-        self.custom_title        = ''
+        self.report_infra_picture = ''
+        self.custom_section = 0
+        self.custom_title = ''
         try:
             self.mreport_home = os.environ['MREPORT_HOME']
         except:
@@ -750,7 +750,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                     relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_c.png', record['graphname'], 450)
                 except:
                     rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
-                    time.sleep(2) # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+                    time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                     relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_c.png', record['graphname'], 450)
                 body.append(picpara)
                 body.append(docx.figureCaption(record['graphname']))
