@@ -488,16 +488,30 @@ def getUptimeGraph(itemid):
      where difference > %s" % (itemid, start_epoch, end_epoch, interval_threshold))
     rootLogger.debug("getUptimeGraph - Clocks with consecutive downtime for item: %s, %s" % (itemid, rows))
     item_nodata_rows = []
-    num_pollings_nodata = 0
     for row in rows:
         end_date_nodata = row[0]
         seconds_nodata = row[1]
-        num_pollings_nodata += (seconds_nodata / item_interval)
         start_date_nodata = end_date_nodata - seconds_nodata
         item_nodata_rows.append((start_date_nodata, end_date_nodata))
+    item_nodata_maintenance = []
+    item_nodata = list(item_nodata_rows)  # Make copy of list so that it can be edited without affecting original list (mutable), same as item_nodata_rows[:]
+    for clock in item_nodata_rows:  # Check if the nodata items are within maintenance window
+        for mclock in item_maintenance_rows:
+            if mclock[0] <= clock[0] <= mclock[1]:
+                item_nodata_maintenance.append(clock)
+                item_nodata.remove(clock)
+    num_pollings_nodata = 0
+    num_pollings_nodata_maintenance = 0
+    for item in item_nodata_maintenance:  # Count items with nodata but within maintenance
+        seconds_nodata = item[1] - item[0]
+        num_pollings_nodata_maintenance += (seconds_nodata / item_interval)
+    for item in item_nodata:  # Count items with nodata but not in maintenance
+        seconds_nodata = item[1] - item[0]
+        num_pollings_nodata += (seconds_nodata / item_interval)
     rootLogger.info("")
     rootLogger.info("getUptimeGraph - Summary for item: %s" % itemid)
-    rootLogger.info("Polling items with nodata                           : %s" % num_pollings_nodata)
+    rootLogger.info("Polling items with nodata and in maintenance        : %s" % num_pollings_nodata_maintenance)
+    rootLogger.info("Polling items with nodata and NOT in maintenance    : %s" % num_pollings_nodata)
     rootLogger.info("Polling items down and in maintenance               : %s" % len(polling_down_maintenance))
     rootLogger.info("Polling items down and NOT in maintenance           : %s" % len(polling_down))
     rootLogger.info("Polling items UP                                    : %s" % (polling_total - len(polling_down_maintenance) - len(polling_down)))
@@ -506,7 +520,7 @@ def getUptimeGraph(itemid):
     rootLogger.info("Period in seconds                                   : %s" % config.report_period)
 
     if polling_total > 0:
-        percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
+        percentage_down_maintenance = (float(len(polling_down_maintenance) + num_pollings_nodata_maintenance) / float(polling_total)) * 100
         percentage_down = (float(len(polling_down) + num_pollings_nodata) / float(polling_total)) * 100
     else:
         percentage_down_maintenance = 0
