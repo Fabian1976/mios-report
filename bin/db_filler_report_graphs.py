@@ -327,6 +327,8 @@ def checkGraphs(hostgroupid, hostgroupname, menu_data, org_menu_data):
                     graph_type = "Both performance and trending"
                 elif menu_data['options'][host]['options'][graph]['selected'] == 'w':
                     graph_type = "Web-check graph"
+                elif menu_data['options'][host]['options'][graph]['selected'] == 'c':
+                    graph_type = "Custom graph"
                 if menu_data['options'][host]['options'][graph]['selected'] != '0':
                     print("\t\t%-18s: %s" % (graph_type, menu_data['options'][host]['options'][graph]['title']))
         else:
@@ -387,7 +389,7 @@ def main():
         menu_hosts['title'] = host
         menu_hosts['hostid'] = hosts[host][0]
         menu_hosts['type'] = 'MENU'
-        menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph, "t" for a trend graph, "r" for both and "w" for a web-check graph'
+        menu_hosts['subtitle'] = 'Select the graphs for the report. Use "p" to mark as a performance graph, "t" for a trend graph, "r" for both, "w" for a web-check graph and "c" for custom graph'
         graphs = hosts[host][1]
         host_options = []
         for graph in sorted(graphs.iterkeys()):

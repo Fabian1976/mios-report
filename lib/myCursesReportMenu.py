@@ -22,7 +22,7 @@ def runmenu(menu, parent):
 
     # Loop until return key is pressed
     while x != ord('\n'):
-        if pos != oldpos or x == 112 or x == 114 or x == 116 or x == 119:
+        if pos != oldpos or x == 112 or x == 114 or x == 116 or x == 119 or x == 99:
             oldpos = pos
             pad.clear()  # clears previous screen on key press and updates display based on pos
             pad.addstr(2, 2, menu['title'], curses.A_STANDOUT)  # Title for this menu
@@ -95,6 +95,13 @@ def runmenu(menu, parent):
                     menu['options'][pos]['selected'] = '0'
                 else:
                     menu['options'][pos]['selected'] = 'w'
+            screen.refresh()
+        elif x == 99:  # c(ustom)
+            if 'graphid' in menu['options'][pos]:
+                if menu['options'][pos]['selected'] == 'c':
+                    menu['options'][pos]['selected'] = '0'
+                else:
+                    menu['options'][pos]['selected'] = 'c'
             screen.refresh()
         elif x != ord('\n'):
             curses.flash()
