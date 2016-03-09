@@ -519,11 +519,13 @@ def getUptimeGraph(itemid):
     rootLogger.info("Eind epoch                                          : %s" % end_epoch)
     rootLogger.info("Period in seconds                                   : %s" % config.report_period)
 
-    if polling_total > 0:
+    try:
         percentage_down_maintenance = (float(len(polling_down_maintenance) + num_pollings_nodata_maintenance) / float(polling_total)) * 100
-        percentage_down = (float(len(polling_down) + num_pollings_nodata) / float(polling_total)) * 100
-    else:
+    except ZeroDivisionError:
         percentage_down_maintenance = 0
+    try:
+        percentage_down = (float(len(polling_down) + num_pollings_nodata) / float(polling_total)) * 100
+    except ZeroDivisionError:
         percentage_down = 0
     percentage_up = 100 - (percentage_down + percentage_down_maintenance)
     rootLogger.info("Percentage down and in maintenanve during period    : %s" % percentage_down_maintenance)
