@@ -564,7 +564,10 @@ def getUptimeGraph(itemid):
     # Append nodata rows to downtime_periods
     for nodata_rows in item_nodata_rows:
         downtime_periods.append(nodata_rows)
-    downtime_periods = list(mergeTuplesEpochTimes(downtime_periods))
+    try:
+        downtime_periods = list(mergeTuplesEpochTimes(downtime_periods))
+    except:
+        pass
     rootLogger.debug("getUptimeGraph - Downtime periods: %s" % downtime_periods)
     return downtime_periods
 
