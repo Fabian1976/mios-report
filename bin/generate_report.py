@@ -544,6 +544,7 @@ def getUptimeGraph(itemid):
     rootLogger.info("getUptimeGraph - Doubling interval for item: %s. Interval is never exact. Allways a deviation of a couple of seconds. So double it just to be safe" % itemid)
     rootLogger.info("getUptimeGraph - New interval for itemid: %s, %s" % (itemid, item_interval))
     downtime_periods = []
+    polling_down_rows.sort()  # Sort the list to get consecutive downtimes
     if len(polling_down_rows) > 0:
         for num in range(len(polling_down_rows)):
             if num == 0:
@@ -563,8 +564,21 @@ def getUptimeGraph(itemid):
     # Append nodata rows to downtime_periods
     for nodata_rows in item_nodata_rows:
         downtime_periods.append(nodata_rows)
+    downtime_periods = list(mergeTuplesEpochTimes(downtime_periods))
     rootLogger.debug("getUptimeGraph - Downtime periods: %s" % downtime_periods)
     return downtime_periods
+
+
+def mergeTuplesEpochTimes(times):
+    saved = list(times[0])
+    for st, en in sorted([sorted(t) for t in times]):
+        if st <= saved[1]:
+            saved[1] = max(saved[1], en)
+        else:
+            yield tuple(saved)
+            saved[0] = st
+            saved[1] = en
+    yield tuple(saved)
 
 
 def getMaintenancePeriods(hostgroupid):
