@@ -269,11 +269,32 @@ def selectHostgroup():
 
 def getHosts(hostgroupid):
     hosts = {}
-    for host in zapi.host.get({"output": "extend", "groupids": [4, hostgroupid]}):
-        hosts[host['name']] = (host['hostid'], getGraphs(host['hostid']))
+    graphs = {}
+    zapihosts = {}
+    zapigraphs = {}
+    selected = '0'
+    found_graph = False
+    selectedHosts = []
+
+    # Fetch all monitored hosts from hostgroup
+    zapihosts = zapi.host.get({"output": "name", "sortfield": "name", "groupids": [4, hostgroupid], 'monitored_hosts': 'true'})
+    for host in zapihosts:
+        selectedHosts.append(host['hostid'])
+    # Fetch all graphs for selected hosts
+    zapigraphs = zapi.graph.get({"output": "extend", "sortfield": "name", "hostids": selectedHosts, "selectHosts": "true"})
+    # Restucture retreived objects
+    for host in zapihosts:
+        for graph in zapigraphs:
+            if host['hostid'] == graph['hosts'][0]['hostid']:
+                graphs[graph['name']] = (graph['graphid'], selected)
+                found_graph = True
+        if found_graph:
+            hosts[host['name']] = (host['hostid'], graphs)
+            found_graph = False
+            graphs = {}
     graphs_in_db = postgres.execute(config.postgres_dbname, "select count(*) from mios_report_graphs where hostgroupid = %s" % hostgroupid)[0][0]
-    hosts_temp = copy.deepcopy(hosts)
     if graphs_in_db > 0:
+        hosts_temp = copy.deepcopy(hosts)
         graphs_in_db = postgres.execute(config.postgres_dbname, "select hostid, graphid, graphtype from mios_report_graphs where hostgroupid = %s" % hostgroupid)
         for host in hosts:
             for hnum in range(len(graphs_in_db)):
@@ -282,16 +303,8 @@ def getHosts(hostgroupid):
                     for graph in graphs:
                         if int(graphs[graph][0]) == int(graphs_in_db[hnum][1]):
                             hosts_temp[host][1][graph] = (graphs_in_db[hnum][1], graphs_in_db[hnum][2])
-    hosts = hosts_temp
+        hosts = hosts_temp
     return hosts
-
-
-def getGraphs(hostid):
-    graphs = {}
-    selected = '0'
-    for graph in zapi.graph.get({"output": "extend", "hostids": hostid}):
-        graphs[graph['name']] = (graph['graphid'], selected)
-    return graphs
 
 
 def runmenu(menu, parent):
@@ -406,7 +419,13 @@ def processmenu(menu, parent=None):
     optioncount = len(menu['options'])
     exitmenu = False
     while not exitmenu:  # Loop until the user exits the menu
-        getin = runmenu(menu, parent)
+        try:
+            getin = runmenu(menu, parent)
+        except Exception as e:
+            curses.endwin()
+            print('Something went wrong')
+            print('Error: %s' % e)
+            raise
         if getin == optioncount:
             exitmenu = True
         elif menu['options'][getin]['type'] == 'MENU':
