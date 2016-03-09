@@ -24,7 +24,7 @@ except:
 sys.path.append(mreport_home + '/lib')
 
 from zabbix_api import ZabbixAPI, ZabbixAPIException
-from GChartWrapper import *
+import GChartWrapper
 
 postgres = None
 
@@ -505,8 +505,12 @@ def getUptimeGraph(itemid):
     rootLogger.info("Eind epoch                                          : %s" % end_epoch)
     rootLogger.info("Period in seconds                                   : %s" % config.report_period)
 
-    percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
-    percentage_down = (float(len(polling_down) + num_pollings_nodata) / float(polling_total)) * 100
+    if polling_total > 0:
+        percentage_down_maintenance = (float(len(polling_down_maintenance)) / float(polling_total)) * 100
+        percentage_down = (float(len(polling_down) + num_pollings_nodata) / float(polling_total)) * 100
+    else:
+        percentage_down_maintenance = 0
+        percentage_down = 0
     percentage_up = 100 - (percentage_down + percentage_down_maintenance)
     rootLogger.info("Percentage down and in maintenanve during period    : %s" % percentage_down_maintenance)
     rootLogger.info("Percentage down and NOT in maintenance during period: %s" % percentage_down)
@@ -514,7 +518,7 @@ def getUptimeGraph(itemid):
     rootLogger.info("")
 
     rootLogger.info("getUptimeGraph - Fetching pie chart using Google GChartWrapper.Pie3D API for item: %s" % itemid)
-    uptime_graph = Pie3D([percentage_up, percentage_down, percentage_down_maintenance])
+    uptime_graph = GChartWrapper.Pie3D([percentage_up, percentage_down, percentage_down_maintenance])
     uptime_graph.size(400, 100)
     uptime_graph.label('Up (%.2f%%)' % percentage_up, 'Down (%.2f%%)' % percentage_down, 'Maintenance (%.2f%%)' % percentage_down_maintenance)
     uptime_graph.color('00dd00', 'dd0000', 'ff8800')
@@ -666,16 +670,16 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     maintenance_tbl_rows = []
     tbl_heading = ['OMSCHRIJVING', 'START MAINTENANCE', 'EINDE MAINTENANCE', 'DUUR']
     maintenance_tbl_rows.append(tbl_heading)
-    for num in range(len(maintenance_periods)):
-        tbl_row = []
-        (description, start_period, end_period) = maintenance_periods[num]
-        tbl_row.append(description)
-        tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
-        tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
-        tbl_row.append(hms(end_period - start_period))
-        maintenance_tbl_rows.append(tbl_row)
     if len(maintenance_periods) > 0:
-        body.append(docx.table(maintenance_tbl_rows))
+        for num in range(len(maintenance_periods)):
+            tbl_row = []
+            (description, start_period, end_period) = maintenance_periods[num]
+            tbl_row.append(description)
+            tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+            tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+            tbl_row.append(hms(end_period - start_period))
+            maintenance_tbl_rows.append(tbl_row)
+            body.append(docx.table(maintenance_tbl_rows))
     else:
         tbl_rows = []
         tbl_heading = ['ITEM', 'OPMERKINGEN']
