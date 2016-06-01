@@ -379,7 +379,7 @@ def getHostgroupName(hostgroupid):
         rootLogger.error("getHostgroupName - Fetching hostgroupname via API failed")
         rootLogger.error("getHostgroupName - Additional info: %s" % e)
         hostgroupname = 0
-        return hostgroupname
+    return hostgroupname
 
 
 def checkHostgroupGraphs(hostgroupid):
@@ -648,6 +648,17 @@ def getText(filename):
     return full_text
 
 
+def getDBText(hostgroupid, paragraphName):
+    paragraphText = postgres.execute(config.postgres_dbname, "select paragraph_text from mios_report_text where hostgroupid = %s and paragraph_name = '%s'" % (hostgroupid, paragraphName))
+    if not paragraphText:
+        rootLogger.warn("No paragraph_text found for hostgroup %s and paragraph_name '%s'. Fetching defaults." % (getHostgroupName(hostgroupid), paragraphName))
+        paragraphText = postgres.execute(config.postgres_dbname, "select paragraph_text from mios_report_text where hostgroupid = 0 and paragraph_name = '%s'" % paragraphName)
+        if not paragraphText:
+            rootLogger.warn("No default paragraph found for paragraph_name '%s'. Returning empty string" % paragraphName)
+            return ''
+    return paragraphText[0][0]
+
+
 def sendReport(filename, hostgroupname):
     import smtplib
     from email.MIMEMultipart import MIMEMultipart
@@ -740,7 +751,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     if config.custom_section == 1:
         #Then generate custom chapter
         body.append(docx.heading(config.custom_title, 2))
-        body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Custom')))
+        #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Custom')))
+        body.append(docx.paragraph(getDBText(hostgroupid, 'Custom')))
         for record in graphData:
             if record['graphtype'] == 'c':
                 rootLogger.info("generateReport - Generating custom graph '%s'" % record['graphname'])
@@ -755,7 +767,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                 body.append(picpara)
                 body.append(docx.figureCaption(record['graphname']))
     body.append(docx.heading("Beschikbaarheid business services", 2))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_services')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_services')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_services')))
     body.append(docx.heading("Web-check", 3))
     for record in graphData:
         if record['graphtype'] == 'w':
@@ -779,7 +792,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
             uptime_items.append(record['itemname'])
 
     body.append(docx.heading("Beschikbaarheid business componenten", 2))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_componenten')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_componenten')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_componenten')))
     for item in uptime_items:
         body.append(docx.heading(item, 3))
         for record in itemData:
@@ -823,7 +837,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
     # Performance grafieken
     body.append(docx.heading("Basic performance counters", 2))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Basic_performance_counters')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Basic_performance_counters')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Basic_performance_counters')))
     points = ['CPU-load: geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + actieve processen op de CPU;',
               'CPU utilization: dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, onderverdeeld naar type CPU-gebruik;',
               'Memory utilization: dit getal geeft aan hoeveel memory er op de server in gebruik is, onderverdeeld naar type memory-gebruik;',
@@ -863,7 +878,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
     # Trending grafieken
     body.append(docx.heading("Trending", 2))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Trending')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Trending')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Trending')))
     for host in hosts:
         host_has_graphs = 0
         for record in graphData:
@@ -892,12 +908,14 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
 
     body.append(docx.heading("Advanced performance counters", 2))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Advanced_performance_counters')))
     rootLogger.info("generateReport - Done generating graphs...")
 
     # Backup overzicht
     body.append(docx.heading("Backup overzicht", 2))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Backup_overzicht')))
     body.append(docx.heading("Overzicht", 3))
     if not config.report_backup_item:
         body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
@@ -926,10 +944,12 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
         body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
 
     body.append(docx.heading("Ticket overzicht", 1))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Ticket_overzicht')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Ticket_overzicht')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Ticket_overzicht')))
 
     body.append(docx.heading("Aktiepunten", 1))
-    body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Aktiepunten')))
+    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Aktiepunten')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Aktiepunten')))
 
     body.append(docx.heading("Definities/afkortingen", 1))
     tbl_rows = []
