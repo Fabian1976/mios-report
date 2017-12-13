@@ -489,7 +489,7 @@ def getUptimeGraph(itemid):
         interval_threshold = 300
         rootLogger.info("getUptimeGraph - Item interval shorter then 5 minutes. Assuming default of 5 minutes for threshold for item: %s" % itemid)
     else:
-        interval_threshold = (item_interval * 2) + 10
+        interval_threshold = int(item_interval * 2) + 10
         rootLogger.info("getUptimeGraph - Item interval longer then 5 minutes. Setting threshold for item %s to %s" % (itemid, interval_threshold))
     rootLogger.info("getUptimeGraph - Fetching clocks with consecutive downtime larger then threshold for item: %s" % itemid)
     rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
