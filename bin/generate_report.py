@@ -1129,7 +1129,7 @@ if __name__ == "__main__":
     rootLogger = logging.getLogger()
 
     rootLogger.info('============================= Initialize MIOS-REPORT ================================')
-    zapi = ZabbixAPI(server=config.zabbix_frontend)
+    zapi = ZabbixAPI(server=config.zabbix_frontend, validate_certs=False)
 
     try:
         rootLogger.info("Connecting to Zabbix API")
