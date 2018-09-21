@@ -434,13 +434,13 @@ def getGraph(graphid, graphtype):
         day, month, year = config.report_trend_start.split('-')
         stime = year + month + day + '000000'
         rootLogger.info("getGraph - graphid: %s, width: %s, stime: %s, period: %s" % (str(graphid), config.report_graph_width, stime, str(config.report_trend_period)))
-        curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_trend_period))
+        curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_trend_period) + '&isNow=0')
     else:  # normal graph
         rootLogger.info("getGraph - Fetching normal graph")
         day, month, year = config.report_start_date.split('-')
         stime = year + month + day + '000000'
         rootLogger.info("getGraph - graphid: %s, width: %s, stime: %s, period: %s" % (str(graphid), config.report_graph_width, stime, str(config.report_period)))
-        curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period))
+        curl.setopt(curl.URL, z_url_graph + '?graphid=' + str(graphid) + '&width=' + config.report_graph_width + '&stime=' + stime + '&period=' + str(config.report_period) + '&isNow=0')
     curl.setopt(curl.WRITEFUNCTION, buffer.write)
     curl.perform()
     f = open(z_image_name, 'wb')
