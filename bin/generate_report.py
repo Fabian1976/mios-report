@@ -424,6 +424,7 @@ def getGraph(graphid, graphtype):
     curl.setopt(curl.POSTFIELDS, z_login_data)
     curl.setopt(curl.COOKIEJAR, z_filename_cookie)
     curl.setopt(curl.COOKIEFILE, z_filename_cookie)
+    curl.setopt(curl.SSL_VERIFYPEER, 0)
     curl.perform()
     # Retrieve graphs using cookie
     # By just giving a period the graph will be generated from today and "period" seconds ago. So a period of 604800 will be 1 week (in seconds)
