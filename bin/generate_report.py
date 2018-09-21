@@ -139,6 +139,10 @@ class Config:
             self.report_template = self.customer_config.get('report', 'template')
         except:
             self.report_template = ''
+        try:
+            self.report_template_language = self.customer_config.get('report', 'lang')
+        except:
+            self.report_template_language = 'en'
         if 'start_date' not in globals():  # so start_date is not passed as an argument to the script
             try:
                 self.report_start_date = self.customer_config.get('report', 'start_date')
@@ -733,8 +737,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     relationships = docx.relationshiplist(existing_report, mreport_home + '/tmp')
     body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
     # Samenvatting toevoegen met maintenance overzicht in opmerkingen
-    body.append(docx.heading("Samenvatting", 1))
-    body.append(docx.heading("Opmerkingen", 2))
+    body.append(docx.heading("Samenvatting", 1, lang=config.report_template_language))
+    body.append(docx.heading("Opmerkingen", 2, lang=config.report_template_language))
     # Maintenance tabel
     maintenance_periods = getMaintenancePeriods(hostgroupid)
     maintenance_tbl_rows = []
@@ -757,21 +761,21 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
         tbl_rows.append(['', ''])
         body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
 
-    body.append(docx.heading("Aktiepunten", 2))
+    body.append(docx.heading("Aktiepunten", 2, lang=config.report_template_language))
 
-    body.append(docx.heading("MIOS monitoring", 1))
+    body.append(docx.heading("MIOS monitoring", 1, lang=config.report_template_language))
     #Custom section
     #First check if a custom section is configured
     if config.custom_section == 1:
         #Then generate custom chapter
-        body.append(docx.heading(config.custom_title, 2))
+        body.append(docx.heading(config.custom_title, 2, lang=config.report_template_language))
         #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Custom')))
         body.append(docx.paragraph(getDBText(hostgroupid, 'Custom')))
         for record in graphData:
             if record['graphtype'] == 'c':
                 rootLogger.info("generateReport - Generating custom graph '%s'" % record['graphname'])
                 getGraph(record['graphid'], 'c')
-                body.append(docx.heading(record['graphname'], 3))
+                body.append(docx.heading(record['graphname'], 3, lang=config.report_template_language))
                 try:
                     relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_c.png', record['graphname'], 450)
                 except:
@@ -779,11 +783,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                     time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                     relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_c.png', record['graphname'], 450)
                 body.append(picpara)
-                body.append(docx.figureCaption(record['graphname']))
-    body.append(docx.heading("Beschikbaarheid business services", 2))
+                body.append(docx.figureCaption(record['graphname'], lang=config.report_template_language))
+    body.append(docx.heading("Beschikbaarheid business services", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_services')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_services')))
-    body.append(docx.heading("Web-check", 3))
+    body.append(docx.heading("Web-check", 3, lang=config.report_template_language))
     for record in graphData:
         if record['graphtype'] == 'w':
             rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
@@ -795,7 +799,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                 time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                 relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
             body.append(picpara)
-            body.append(docx.figureCaption(record['graphname']))
+            body.append(docx.figureCaption(record['graphname'], lang=config.report_template_language))
     hosts = []
     for record in graphData:  # Create list of hosts for iteration
         if record['hostname'] not in hosts:
@@ -805,11 +809,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
         if record['itemname'] not in uptime_items:
             uptime_items.append(record['itemname'])
 
-    body.append(docx.heading("Beschikbaarheid business componenten", 2))
+    body.append(docx.heading("Beschikbaarheid business componenten", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_componenten')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_componenten')))
     for item in uptime_items:
-        body.append(docx.heading(item, 3))
+        body.append(docx.heading(item, 3, lang=config.report_template_language))
         for record in itemData:
             if record['itemname'] == item:
                 rootLogger.info("generateReport - Generating uptime graph '%s' from item '%s'" % (record['itemname'], item))
@@ -821,7 +825,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                     time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                     relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
                 body.append(picpara)
-#               body.append(docx.figureCaption(record['itemname']))
+                body.append(docx.figureCaption(record['itemname'], lang=config.report_template_language))
                 tbl_rows = []
                 tbl_heading = ['START DOWNTIME', 'EINDE DOWNTIME', 'DUUR']
                 tbl_rows.append(tbl_heading)
@@ -835,14 +839,14 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                 if len(downtime_periods) > 0:
                     body.append(docx.table(tbl_rows))
     # Maintenance periodes
-    body.append(docx.heading("Maintenance-overzicht", 3))
+    body.append(docx.heading("Maintenance-overzicht", 3, lang=config.report_template_language))
     # De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
     if len(maintenance_periods) > 0:
         body.append(docx.table(maintenance_tbl_rows))
     else:
         body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
-    body.append(docx.heading("Opmerkingen", 3))
+    body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
     tbl_rows = []
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
@@ -850,7 +854,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
 
     # Performance grafieken
-    body.append(docx.heading("Basic performance counters", 2))
+    body.append(docx.heading("Basic performance counters", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Basic_performance_counters')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Basic_performance_counters')))
     points = ['CPU-load: geeft de zogenaamde "load averages" van een systeem weer. Dit getal is de som van het aantal wachtende processen + actieve processen op de CPU;',
@@ -868,7 +872,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
             if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
                 host_has_graphs = 1
         if host_has_graphs:
-            body.append(docx.heading(host, 3))
+            body.append(docx.heading(host, 3, lang=config.report_template_language))
             for record in graphData:
                 if record['hostname'] == host and (record['graphtype'] == 'p' or record['graphtype'] == 'r'):
                     rootLogger.info("generateReport - Generating performance graph '%s' from host '%s'" % (record['graphname'], host))
@@ -880,10 +884,10 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                         time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                         relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_p.png', record['graphname'], 450)
                     body.append(picpara)
-                    body.append(docx.figureCaption(record['graphname']))
+                    body.append(docx.figureCaption(record['graphname'], lang=config.report_template_language))
 #           body.append(docx.pagebreak(type='page', orient='portrait'))
 
-    body.append(docx.heading("Opmerkingen", 3))
+    body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
     tbl_rows = []
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
@@ -891,7 +895,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
 
     # Trending grafieken
-    body.append(docx.heading("Trending", 2))
+    body.append(docx.heading("Trending", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Trending')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Trending')))
     for host in hosts:
@@ -900,7 +904,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
             if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
                 host_has_graphs = 1
         if host_has_graphs:
-            body.append(docx.heading(host, 3))
+            body.append(docx.heading(host, 3, lang=config.report_template_language))
             for record in graphData:
                 if record['hostname'] == host and (record['graphtype'] == 't' or record['graphtype'] == 'r'):
                     rootLogger.info("generateReport - Generating trending graph '%s' from host '%s'" % (record['graphname'], host))
@@ -912,25 +916,25 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                         time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                         relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_t.png', record['graphname'], 450)
                     body.append(picpara)
-                    body.append(docx.figureCaption(record['graphname']))
+                    body.append(docx.figureCaption(record['graphname'], lang=config.report_template_language))
 
-    body.append(docx.heading("Opmerkingen", 3))
+    body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
     tbl_rows = []
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
     tbl_rows.append(['', ''])
     body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
 
-    body.append(docx.heading("Advanced performance counters", 2))
+    body.append(docx.heading("Advanced performance counters", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Advanced_performance_counters')))
     rootLogger.info("generateReport - Done generating graphs...")
 
     # Backup overzicht
-    body.append(docx.heading("Backup overzicht", 2))
+    body.append(docx.heading("Backup overzicht", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Backup_overzicht')))
-    body.append(docx.heading("Overzicht", 3))
+    body.append(docx.heading("Overzicht", 3, lang=config.report_template_language))
     if not config.report_backup_item:
         body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
     else:
@@ -950,22 +954,22 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
             tbl_row.append(backup_type)
             tbl_rows.append(tbl_row)
         body.append(docx.table(tbl_rows))
-        body.append(docx.heading("Opmerkingen", 3))
+        body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
         tbl_rows = []
         tbl_heading = ['ITEM', 'OPMERKINGEN']
         tbl_rows.append(tbl_heading)
         tbl_rows.append(['', ''])
         body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
 
-    body.append(docx.heading("Ticket overzicht", 1))
+    body.append(docx.heading("Ticket overzicht", 1, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Ticket_overzicht')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Ticket_overzicht')))
 
-    body.append(docx.heading("Aktiepunten", 1))
+    body.append(docx.heading("Aktiepunten", 1, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Aktiepunten')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Aktiepunten')))
 
-    body.append(docx.heading("Definities/afkortingen", 1))
+    body.append(docx.heading("Definities/afkortingen", 1, lang=config.report_template_language))
     tbl_rows = []
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
@@ -988,10 +992,10 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.table(tbl_rows, colw=[1648, 7529], firstColFillColor='E3F3B7'))
 
     if config.report_infra_picture:
-        body.append(docx.heading("Omgevingsoverzicht", 1))
+        body.append(docx.heading("Omgevingsoverzicht", 1, lang=config.report_template_language))
         relationships, picpara = docx.picture(relationships, mreport_home + '/templates/' + config.report_infra_picture, config.report_infra_picture.split('.')[0].replace('_', ' '), 450)
         body.append(picpara)
-        body.append(docx.figureCaption(config.report_infra_picture.split('.')[0].replace('_', ' ')))
+        body.append(docx.figureCaption(config.report_infra_picture.split('.')[0].replace('_', ' '), lang=config.report_template_language))
     rootLogger.info("generateReport - Start creating docx")
     title = config.report_title
     subject = 'Performance en trending rapportage'

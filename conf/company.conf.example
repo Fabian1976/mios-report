@@ -7,6 +7,8 @@ in_test = 1
 name=Report.docx
 # Place template in $MREPORT_HOME/template/ folder
 template=VermontTemplate_0.2.docx
+# Language of Word in which the template was generated (only support en and nl. Support for other languages can be added by modifying docx.py)
+lang=nl
 # Start of period (dd-mm-yyyy). If non is specified. Today will be the "ending" date of the period
 start_date=01-03-2014
 #Specify period in days, weeks, months or years (1d for 1 day, 1w for 1 week enz.)
