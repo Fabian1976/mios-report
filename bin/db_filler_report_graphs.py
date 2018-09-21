@@ -419,7 +419,7 @@ if __name__ == "__main__":
     config_file = mreport_home + '/conf/mios-report.conf'
     config = Config(config_file)
     config.parse()
-    zapi = ZabbixAPI(server=config.zabbix_frontend, log_level=0)
+    zapi = ZabbixAPI(server=config.zabbix_frontend, log_level=0, validate_certs=False)
 
     try:
         zapi.login(config.zabbix_user, config.zabbix_password)
