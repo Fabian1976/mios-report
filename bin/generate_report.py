@@ -226,7 +226,7 @@ class Config:
         try:
             self.report_title = self.customer_config.get('report', 'title')
         except:
-            self.report_title = "MIOS rapportage"
+            self.report_title = "Zabbix rapportage"
         try:
             self.report_backup_item = self.customer_config.get('report', 'backup_item')
         except:
@@ -244,7 +244,6 @@ class Config:
                 self.custom_title = self.customer_config.get('report', 'custom_title')
             except:
                 self.custom_title = "None specified"
-
 
 class Postgres(object):
     def __init__(self, instances):
@@ -336,7 +335,6 @@ class Postgres(object):
             raise
             return -2
 
-
 def selectHostgroup():
     teller = 0
     hostgroups = {}
@@ -374,7 +372,6 @@ def selectHostgroup():
     rootLogger.info("selectHostgroup - Hostgroup selected (hostgroupid: %s, hostgroupname: %s)" % (hostgroupid, hostgroupname))
     return (hostgroupid, hostgroupname)
 
-
 def getHostgroupName(hostgroupid):
     try:
         rootLogger.info("getHostgroupName - Fetching hostgroupname via API")
@@ -384,7 +381,6 @@ def getHostgroupName(hostgroupid):
         rootLogger.error("getHostgroupName - Additional info: %s" % e)
         hostgroupname = 0
     return hostgroupname
-
 
 def checkHostgroupGraphs(hostgroupid):
     rootLogger.debug("checkHostgroupGraphs - Checking if graphs for this hostgroupid (%s) are configured" % hostgroupid)
@@ -400,7 +396,6 @@ def checkHostgroupGraphs(hostgroupid):
         rootLogger.error("checkHostgroupGraphs - Didn't find graphs or uptime items for hostgroupid (%s)" % hostgroupid)
         result = 0
     return result
-
 
 def getGraph(graphid, graphtype):
     import pycurl
@@ -764,7 +759,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 
     body.append(docx.heading("Aktiepunten", 2, lang=config.report_template_language))
 
-    body.append(docx.heading("MIOS monitoring", 1, lang=config.report_template_language))
+    body.append(docx.heading("Monitoring", 1, lang=config.report_template_language))
     #Custom section
     #First check if a custom section is configured
     if config.custom_section == 1:
@@ -826,7 +821,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                     time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                     relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
                 body.append(picpara)
-                body.append(docx.figureCaption(record['itemname'], lang=config.report_template_language))
+                body.append(docx.figureCaption(record['hostname'] + '-' + record['itemname'], lang='nl'))
                 tbl_rows = []
                 tbl_heading = ['START DOWNTIME', 'EINDE DOWNTIME', 'DUUR']
                 tbl_rows.append(tbl_heading)
@@ -838,7 +833,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                     tbl_row.append(dhms(end_period - start_period))
                     tbl_rows.append(tbl_row)
                 if len(downtime_periods) > 0:
-                    body.append(docx.table(tbl_rows))
+                    body.append(docx.table(tbl_rows, headingFillColor='2471A3'))
     # Maintenance periodes
     body.append(docx.heading("Maintenance-overzicht", 3, lang=config.report_template_language))
     # De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
@@ -1000,8 +995,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     rootLogger.info("generateReport - Start creating docx")
     title = config.report_title
     subject = 'Performance en trending rapportage'
-    creator = 'Vermont 24/7'
-    keywords = ['MIOS', 'Rapportage', 'Vermont']
+    creator = 'Conclusion Mission Critical'
+    keywords = ['Monitoring', 'Rapportage', 'Conclusion', 'Mission Critical']
     coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
     wordrelationships = docx.wordrelationships(relationships)
     config.report_name = config.report_name.split('.')[0] + '_' + hostgroupname.replace(' ', '_') + '_' + config.report_start_date + '_' + config.report_end_date + '.docx'
@@ -1067,7 +1062,7 @@ def main():
     atexit.register(cleanup)
 
     postgres = Postgres(config.postgres_dbs)
-    rootLogger.info('============================= Starting MIOS-REPORT ==================================')
+    rootLogger.info('============================= Starting Zabbix-REPORT ==================================')
     # get hostgroup
     if not config.hostgroupid:
         rootLogger.info("No hostgroup defined in config file %s. Displaying hostgroup selection screen" % config.customer_conf_file)
@@ -1089,7 +1084,7 @@ def main():
         graphsList = getGraphsList(hostgroupid)
         itemsList = getItemsList(hostgroupid)
         generateReport(hostgroupid, hostgroupname, graphsList, itemsList)
-    rootLogger.info('============================= Ending MIOS-REPORT ====================================')
+    rootLogger.info('============================= Ending Zabbix-REPORT ====================================')
 
 if __name__ == "__main__":
     global config
@@ -1128,7 +1123,7 @@ if __name__ == "__main__":
 
     rootLogger = logging.getLogger()
 
-    rootLogger.info('============================= Initialize MIOS-REPORT ================================')
+    rootLogger.info('============================= Initialize Zabbix-REPORT ================================')
     zapi = ZabbixAPI(server=config.zabbix_frontend, validate_certs=False)
 
     try:
