@@ -495,13 +495,8 @@ def getUptimeGraph(itemid):
     item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
     rootLogger.debug("getUptimeGraph - Item interval for item: %s, %s" % (itemid, item_interval))
     item_interval = convertInterval(item_interval)
-    # Get history values which have no data for longer then the interval and at least 5 minutes (Zabbix internal interval)
-    if item_interval < 300:
-        interval_threshold = 300
-        rootLogger.info("getUptimeGraph - Item interval shorter then 5 minutes. Assuming default of 5 minutes for threshold for item: %s" % itemid)
-    else:
-        interval_threshold = (item_interval * 2) + 10
-        rootLogger.info("getUptimeGraph - Item interval longer then 5 minutes. Setting threshold for item %s to %s" % (itemid, interval_threshold))
+    # Get history values which have no data for longer then the interval and at least a couple of seconde more then the interval
+    interval_threshold = item_interval + int(item_interval/2)
     rootLogger.info("getUptimeGraph - Fetching clocks with consecutive downtime larger then threshold for item: %s" % itemid)
     rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
      (\
