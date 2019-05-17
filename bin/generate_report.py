@@ -182,7 +182,6 @@ class Config:
                     total_seconds = int(period_items[0]) * 365 * seconds_in_day
             self.report_period = total_seconds
         except:
-            raise
             # Defaults to 1 week
             self.report_period = 604800
         # Calculate end_date
@@ -217,7 +216,6 @@ class Config:
                     total_seconds += days_in_month * seconds_in_day
             self.report_trend_period = total_seconds
         except:
-            raise
             self.report_trend_period = self.report_period
         try:
             self.report_graph_width = self.customer_config.get('report', 'graph_width')
@@ -332,7 +330,6 @@ class Postgres(object):
             return value
         except:
             self.logger.critical("Error in Postgres connection DB: %s" % db)
-            raise
             return -2
 
 def selectHostgroup():
