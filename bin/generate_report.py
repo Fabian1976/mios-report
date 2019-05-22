@@ -776,9 +776,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.heading("Beschikbaarheid business services", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_services')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_services')))
-    body.append(docx.heading("Web-check", 3, lang=config.report_template_language))
+
+    num_web_check_found = 0
     for record in graphData:
         if record['graphtype'] == 'w':
+            num_web_check_found += 1
             rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
             getGraph(record['graphid'], 'w')
             try:
@@ -787,6 +789,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                 rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
                 time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                 relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
+            if num_web_check_found == 1:
+                body.append(docx.heading("Web-check", 3, lang=config.report_template_language))
             body.append(picpara)
             body.append(docx.figureCaption(record['graphname'], lang=config.report_template_language))
     hosts = []
