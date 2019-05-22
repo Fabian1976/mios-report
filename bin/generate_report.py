@@ -925,45 +925,44 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     tbl_rows.append(['', ''])
     body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
-    body.append(docx.heading("Advanced performance counters", 2, lang=config.report_template_language))
-    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
-    body.append(docx.paragraph(getDBText(hostgroupid, 'Advanced_performance_counters')))
-    rootLogger.info("generateReport - Done generating graphs...")
+#    body.append(docx.heading("Advanced performance counters", 2, lang=config.report_template_language))
+#    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
+#    body.append(docx.paragraph(getDBText(hostgroupid, 'Advanced_performance_counters')))
+#    rootLogger.info("generateReport - Done generating graphs...")
 
     # Backup overzicht
-    body.append(docx.heading("Backup overzicht", 2, lang=config.report_template_language))
-    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
-    body.append(docx.paragraph(getDBText(hostgroupid, 'Backup_overzicht')))
-    body.append(docx.heading("Overzicht", 3, lang=config.report_template_language))
-    if not config.report_backup_item:
-        body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
-    else:
-        backupList = getBackupList(config.report_backup_item)
-        tbl_rows = []
-        tbl_heading = ['START BACKUP', 'EINDE BACKUP', 'DUUR', 'STATUS', 'TYPE']
-        tbl_rows.append(tbl_heading)
-        for item in backupList:
-            tbl_row = []
-            (backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
-            if backup_status == 'COMPLETED':
-                backup_status = 'OK'
-            tbl_row.append(backup_start)
-            tbl_row.append(backup_end)
-            tbl_row.append(backup_duration)
-            tbl_row.append(backup_status)
-            tbl_row.append(backup_type)
-            tbl_rows.append(tbl_row)
-        body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
-        body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
-        tbl_rows = []
-        tbl_heading = ['ITEM', 'OPMERKINGEN']
-        tbl_rows.append(tbl_heading)
-        tbl_rows.append(['', ''])
-        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+#    body.append(docx.heading("Backup overzicht", 2, lang=config.report_template_language))
+#    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
+#    body.append(docx.paragraph(getDBText(hostgroupid, 'Backup_overzicht')))
+#    body.append(docx.heading("Overzicht", 3, lang=config.report_template_language))
+#    if not config.report_backup_item:
+#        body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
+#    else:
+#        backupList = getBackupList(config.report_backup_item)
+#        tbl_rows = []
+#        tbl_heading = ['START BACKUP', 'EINDE BACKUP', 'DUUR', 'STATUS', 'TYPE']
+#        tbl_rows.append(tbl_heading)
+#        for item in backupList:
+#            tbl_row = []
+#            (backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
+#            if backup_status == 'COMPLETED':
+#                backup_status = 'OK'
+#            tbl_row.append(backup_start)
+#            tbl_row.append(backup_end)
+#            tbl_row.append(backup_duration)
+#            tbl_row.append(backup_status)
+#            tbl_row.append(backup_type)
+#            tbl_rows.append(tbl_row)
+#        body.append(docx.table(tbl_rows, headingFillColor='2471A3'))
+#        body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
+#        tbl_rows = []
+#        tbl_heading = ['ITEM', 'OPMERKINGEN']
+#        tbl_rows.append(tbl_heading)
+#        tbl_rows.append(['', ''])
+#        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
     body.append(docx.heading("Ticket overzicht", 1, lang=config.report_template_language))
-    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Ticket_overzicht')))
-    body.append(docx.paragraph(getDBText(hostgroupid, 'Ticket_overzicht')))
+#    body.append(docx.paragraph(getDBText(hostgroupid, 'Ticket_overzicht')))
 
     body.append(docx.heading("Aktiepunten", 1, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Aktiepunten')))
