@@ -820,7 +820,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 #                    time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
 #                    relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
 #                body.append(picpara)
-#                body.append(docx.figureCaption(record['hostname'] + '-' + record['itemname'], lang='nl'))
+#                body.append(docx.figureCaption(record['hostname'] + '-' + record['itemname'], lang=config.report_template_language))
 #                tbl_heading = ['START DOWNTIME', 'EINDE DOWNTIME', 'DUUR']
 #                for num in range(len(downtime_periods)):
 #                    tbl_row = []
