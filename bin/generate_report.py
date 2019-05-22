@@ -577,6 +577,7 @@ def getUptimeGraph(itemid):
                     end_period = polling_down_rows[num]
                     prev_clock = polling_down_rows[num]
                 else:
+                    end_period = start_period + item_interval
                     downtime_periods.append((start_period, end_period))
                     start_period = polling_down_rows[num]
                     prev_clock = polling_down_rows[num]
