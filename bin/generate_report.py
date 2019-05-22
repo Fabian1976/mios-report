@@ -26,6 +26,11 @@ sys.path.append(mreport_home + '/lib')
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 import GChartWrapper
 
+# Read file with strings to be replaced
+f = open(mreport_home + '/conf/replace_strings.conf', 'r')
+replace_strings = dict(map(str.strip, line.rstrip('\r\n').split('=')) for line in f)
+f.close()
+
 postgres = None
 
 
@@ -836,7 +841,10 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 #                if len(downtime_periods) > 0:
 #                    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
                 tbl_row = []
-                tbl_row.append(record['itemname'])
+                uptime_item_name = record['itemname']
+                for string, replace_by in replace_strings.items():
+                    uptime_item_name = uptime_item_name.replace(string, replace_by)
+                tbl_row.append(uptime_item_name)
                 tbl_row.append('%.2f' % percentage_down)
                 tbl_row.append('%.2f' % percentage_down_maintenance)
                 tbl_row.append('%.2f' % percentage_up)
