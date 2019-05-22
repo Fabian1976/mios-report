@@ -801,7 +801,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.heading("Beschikbaarheid business componenten", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_componenten')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_componenten')))
-    body.append(docx.paragraph())
+    body.append(docx.paragraph(''))
     tbl_rows = []
     tbl_heading = ['VPN', 'Percentage down', 'Percentage down - maintenance', 'Percentage up']
     tbl_rows.append(tbl_heading)
