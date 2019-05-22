@@ -836,7 +836,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                 tbl_row.append(percentage_down_maintenance)
                 tbl_row.append(percentage_up)
                 tbl_rows.append(tbl_row)
-                body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
     # Maintenance periodes
     body.append(docx.heading("Maintenance-overzicht", 3, lang=config.report_template_language))
     # De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
