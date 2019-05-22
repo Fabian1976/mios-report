@@ -832,9 +832,9 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 #                    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
                 tbl_row = []
                 tbl_row.append(record['itemname'])
-                tbl_row.append(percentage_down)
-                tbl_row.append(percentage_down_maintenance)
-                tbl_row.append(percentage_up)
+                tbl_row.append('%.2f' % percentage_down)
+                tbl_row.append('%.2f' % percentage_down_maintenance)
+                tbl_row.append('%.2f' % percentage_up)
                 tbl_rows.append(tbl_row)
     body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
     # Maintenance periodes
