@@ -548,6 +548,8 @@ def getUptimeGraph(itemid):
         percentage_down_maintenance = 0
     try:
         percentage_down = (float(len(polling_down) + num_pollings_nodata) / float(polling_total)) * 100
+        if percentage_down > 100:
+            percentage_down = 100
     except ZeroDivisionError:
         percentage_down = 0
     percentage_up = 100 - (percentage_down + percentage_down_maintenance)
