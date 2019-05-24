@@ -976,7 +976,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 #        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
     body.append(docx.heading("Ticket overzicht", 1, lang=config.report_template_language))
-#    body.append(docx.paragraph(getDBText(hostgroupid, 'Ticket_overzicht')))
+    body.append(docx.paragraph(getDBText(hostgroupid, 'Ticket_overzicht')))
 
     body.append(docx.heading("Aktiepunten", 1, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Aktiepunten')))
