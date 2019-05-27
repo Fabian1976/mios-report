@@ -26,6 +26,11 @@ sys.path.append(mreport_home + '/lib')
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 import GChartWrapper
 
+# Read file with strings to be replaced
+f = open(mreport_home + '/conf/replace_strings.conf', 'r')
+replace_strings = dict(map(str.strip, line.rstrip('\r\n').split('=')) for line in f)
+f.close()
+
 postgres = None
 
 
@@ -495,13 +500,8 @@ def getUptimeGraph(itemid):
     item_interval = postgres.execute(config.postgres_dbname, "select delay from items where itemid = %s" % itemid)[0][0]
     rootLogger.debug("getUptimeGraph - Item interval for item: %s, %s" % (itemid, item_interval))
     item_interval = convertInterval(item_interval)
-    # Get history values which have no data for longer then the interval and at least 5 minutes (Zabbix internal interval)
-    if item_interval < 300:
-        interval_threshold = 300
-        rootLogger.info("getUptimeGraph - Item interval shorter then 5 minutes. Assuming default of 5 minutes for threshold for item: %s" % itemid)
-    else:
-        interval_threshold = (item_interval * 2) + 10
-        rootLogger.info("getUptimeGraph - Item interval longer then 5 minutes. Setting threshold for item %s to %s" % (itemid, interval_threshold))
+    # Get history values which have no data for longer then the interval and at least a couple of seconde more then the interval
+    interval_threshold = item_interval + int(item_interval/2)
     rootLogger.info("getUptimeGraph - Fetching clocks with consecutive downtime larger then threshold for item: %s" % itemid)
     rows = postgres.execute(config.postgres_dbname, "select clock, difference from\
      (\
@@ -548,6 +548,8 @@ def getUptimeGraph(itemid):
         percentage_down_maintenance = 0
     try:
         percentage_down = (float(len(polling_down) + num_pollings_nodata) / float(polling_total)) * 100
+        if percentage_down > 100:
+            percentage_down = 100
     except ZeroDivisionError:
         percentage_down = 0
     percentage_up = 100 - (percentage_down + percentage_down_maintenance)
@@ -582,6 +584,7 @@ def getUptimeGraph(itemid):
                     end_period = polling_down_rows[num]
                     prev_clock = polling_down_rows[num]
                 else:
+                    end_period = start_period + item_interval
                     downtime_periods.append((start_period, end_period))
                     start_period = polling_down_rows[num]
                     prev_clock = polling_down_rows[num]
@@ -594,7 +597,7 @@ def getUptimeGraph(itemid):
     except:
         pass
     rootLogger.debug("getUptimeGraph - Downtime periods: %s" % downtime_periods)
-    return downtime_periods
+    return (downtime_periods, percentage_up, percentage_down, percentage_down_maintenance)
 
 
 def mergeTuplesEpochTimes(times):
@@ -746,13 +749,13 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
             tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
             tbl_row.append(dhms(end_period - start_period))
             maintenance_tbl_rows.append(tbl_row)
-            body.append(docx.table(maintenance_tbl_rows))
+            body.append(docx.table(maintenance_tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
     else:
         tbl_rows = []
         tbl_heading = ['ITEM', 'OPMERKINGEN']
         tbl_rows.append(tbl_heading)
         tbl_rows.append(['', ''])
-        body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
+        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
     body.append(docx.heading("Aktiepunten", 2, lang=config.report_template_language))
 
@@ -780,9 +783,11 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.heading("Beschikbaarheid business services", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_services')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_services')))
-    body.append(docx.heading("Web-check", 3, lang=config.report_template_language))
+
+    num_web_check_found = 0
     for record in graphData:
         if record['graphtype'] == 'w':
+            num_web_check_found += 1
             rootLogger.info("generateReport - Generating web-check graph '%s'" % record['graphname'])
             getGraph(record['graphid'], 'w')
             try:
@@ -791,6 +796,8 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
                 rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
                 time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
                 relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['graphid']) + '_w.png', record['graphname'], 450)
+            if num_web_check_found == 1:
+                body.append(docx.heading("Web-check", 3, lang=config.report_template_language))
             body.append(picpara)
             body.append(docx.figureCaption(record['graphname'], lang=config.report_template_language))
     hosts = []
@@ -805,32 +812,46 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.heading("Beschikbaarheid business componenten", 2, lang=config.report_template_language))
     #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Beschikbaarheid_business_componenten')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Beschikbaarheid_business_componenten')))
+    body.append(docx.paragraph(''))
+    tbl_rows = []
+    tbl_heading = ['VPN', 'Percentage down', 'Percentage down - maintenance', 'Percentage up']
+    tbl_rows.append(tbl_heading)
+
     for item in uptime_items:
-        body.append(docx.heading(item, 3, lang=config.report_template_language))
+#        body.append(docx.heading(item, 3, lang=config.report_template_language))
         for record in itemData:
             if record['itemname'] == item:
-                rootLogger.info("generateReport - Generating uptime graph '%s' from item '%s'" % (record['itemname'], item))
-                downtime_periods = getUptimeGraph(record['itemid'])
-                try:
-                    relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
-                except:
-                    rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
-                    time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
-                    relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
-                body.append(picpara)
-                body.append(docx.figureCaption(record['hostname'] + '-' + record['itemname'], lang='nl'))
-                tbl_rows = []
-                tbl_heading = ['START DOWNTIME', 'EINDE DOWNTIME', 'DUUR']
-                tbl_rows.append(tbl_heading)
-                for num in range(len(downtime_periods)):
-                    tbl_row = []
-                    (start_period, end_period) = downtime_periods[num]
-                    tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
-                    tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
-                    tbl_row.append(dhms(end_period - start_period))
-                    tbl_rows.append(tbl_row)
-                if len(downtime_periods) > 0:
-                    body.append(docx.table(tbl_rows, headingFillColor='2471A3'))
+#                rootLogger.info("generateReport - Generating uptime graph '%s' from item '%s'" % (record['itemname'], item))
+                rootLogger.info("generateReport - Generating uptime table_row '%s' from item '%s'" % (record['itemname'], item))
+                (downtime_periods, percentage_up, percentage_down, percentage_down_maintenance) = getUptimeGraph(record['itemid'])
+#                try:
+#                    relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
+#                except:
+#                    rootLogger.warn("generateReport - Reading graph image file failed. Possible timing issue. Retry in 2 seconds")
+#                    time.sleep(2)  # Timing issues can occur when getGraph is writing image and docx.picture tries to read image
+#                    relationships, picpara = docx.picture(relationships, mreport_home + '/' + str(record['itemid']) + '.png', record['itemname'], 200, jc='center')
+#                body.append(picpara)
+#                body.append(docx.figureCaption(record['hostname'] + '-' + record['itemname'], lang=config.report_template_language))
+#                tbl_heading = ['START DOWNTIME', 'EINDE DOWNTIME', 'DUUR']
+#                for num in range(len(downtime_periods)):
+#                    tbl_row = []
+#                    (start_period, end_period) = downtime_periods[num]
+#                    tbl_row.append(datetime.datetime.fromtimestamp(start_period).strftime("%d-%m-%Y %H:%M:%S"))
+#                    tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
+#                    tbl_row.append(dhms(end_period - start_period))
+#                    tbl_rows.append(tbl_row)
+#                if len(downtime_periods) > 0:
+#                    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+                tbl_row = []
+                uptime_item_name = record['itemname']
+                for string, replace_by in replace_strings.items():
+                    uptime_item_name = uptime_item_name.replace(string, replace_by)
+                tbl_row.append(uptime_item_name)
+                tbl_row.append('%.2f' % percentage_down)
+                tbl_row.append('%.2f' % percentage_down_maintenance)
+                tbl_row.append('%.2f' % percentage_up)
+                tbl_rows.append(tbl_row)
+    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
     # Maintenance periodes
     body.append(docx.heading("Maintenance-overzicht", 3, lang=config.report_template_language))
     # De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
@@ -844,7 +865,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
     tbl_rows.append(['', ''])
-    body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
     # Performance grafieken
     body.append(docx.heading("Basic performance counters", 2, lang=config.report_template_language))
@@ -885,7 +906,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
     tbl_rows.append(['', ''])
-    body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
     # Trending grafieken
     body.append(docx.heading("Trending", 2, lang=config.report_template_language))
@@ -916,46 +937,45 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
     tbl_rows.append(['', ''])
-    body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
-    body.append(docx.heading("Advanced performance counters", 2, lang=config.report_template_language))
-    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
-    body.append(docx.paragraph(getDBText(hostgroupid, 'Advanced_performance_counters')))
-    rootLogger.info("generateReport - Done generating graphs...")
+#    body.append(docx.heading("Advanced performance counters", 2, lang=config.report_template_language))
+#    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Advanced_performance_counters')))
+#    body.append(docx.paragraph(getDBText(hostgroupid, 'Advanced_performance_counters')))
+#    rootLogger.info("generateReport - Done generating graphs...")
 
     # Backup overzicht
-    body.append(docx.heading("Backup overzicht", 2, lang=config.report_template_language))
-    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
-    body.append(docx.paragraph(getDBText(hostgroupid, 'Backup_overzicht')))
-    body.append(docx.heading("Overzicht", 3, lang=config.report_template_language))
-    if not config.report_backup_item:
-        body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
-    else:
-        backupList = getBackupList(config.report_backup_item)
-        tbl_rows = []
-        tbl_heading = ['START BACKUP', 'EINDE BACKUP', 'DUUR', 'STATUS', 'TYPE']
-        tbl_rows.append(tbl_heading)
-        for item in backupList:
-            tbl_row = []
-            (backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
-            if backup_status == 'COMPLETED':
-                backup_status = 'OK'
-            tbl_row.append(backup_start)
-            tbl_row.append(backup_end)
-            tbl_row.append(backup_duration)
-            tbl_row.append(backup_status)
-            tbl_row.append(backup_type)
-            tbl_rows.append(tbl_row)
-        body.append(docx.table(tbl_rows))
-        body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
-        tbl_rows = []
-        tbl_heading = ['ITEM', 'OPMERKINGEN']
-        tbl_rows.append(tbl_heading)
-        tbl_rows.append(['', ''])
-        body.append(docx.table(tbl_rows, colw=[1188, 7979], firstColFillColor='E3F3B7'))
+#    body.append(docx.heading("Backup overzicht", 2, lang=config.report_template_language))
+#    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Backup_overzicht')))
+#    body.append(docx.paragraph(getDBText(hostgroupid, 'Backup_overzicht')))
+#    body.append(docx.heading("Overzicht", 3, lang=config.report_template_language))
+#    if not config.report_backup_item:
+#        body.append(docx.paragraph('Geen backup gemaakt in deze periode.'))
+#    else:
+#        backupList = getBackupList(config.report_backup_item)
+#        tbl_rows = []
+#        tbl_heading = ['START BACKUP', 'EINDE BACKUP', 'DUUR', 'STATUS', 'TYPE']
+#        tbl_rows.append(tbl_heading)
+#        for item in backupList:
+#            tbl_row = []
+#            (backup_start, backup_end, backup_duration, backup_status, backup_type) = item[0].split(';')
+#            if backup_status == 'COMPLETED':
+#                backup_status = 'OK'
+#            tbl_row.append(backup_start)
+#            tbl_row.append(backup_end)
+#            tbl_row.append(backup_duration)
+#            tbl_row.append(backup_status)
+#            tbl_row.append(backup_type)
+#            tbl_rows.append(tbl_row)
+#        body.append(docx.table(tbl_rows, headingFillColor='2471A3'))
+#        body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
+#        tbl_rows = []
+#        tbl_heading = ['ITEM', 'OPMERKINGEN']
+#        tbl_rows.append(tbl_heading)
+#        tbl_rows.append(['', ''])
+#        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
     body.append(docx.heading("Ticket overzicht", 1, lang=config.report_template_language))
-    #body.append(docx.paragraph(getText(mreport_home + '/templates/default_texts/paragraph_Ticket_overzicht')))
     body.append(docx.paragraph(getDBText(hostgroupid, 'Ticket_overzicht')))
 
     body.append(docx.heading("Aktiepunten", 1, lang=config.report_template_language))
@@ -982,7 +1002,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     row3_col1 = docx.paragraph([("CPU utilization", "b")], size=8)
     row3_col2 = docx.paragraph("dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, en door welk type CPU-gebruik.", size=8)
     tbl_rows.append([row3_col1, row3_col2])
-    body.append(docx.table(tbl_rows, colw=[1648, 7529], firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1648, 7529], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
 
     if config.report_infra_picture:
         body.append(docx.heading("Omgevingsoverzicht", 1, lang=config.report_template_language))

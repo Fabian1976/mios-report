@@ -72,7 +72,7 @@ class Config:
 		try:
 			postgres_port = self.config.get('miosdb', 'port')
 		except:
-			portgres_post = '5432'
+			postgres_port = '5432'
 		try:
 			postgres_user = self.config.get('miosdb', 'user')
 		except:
@@ -191,7 +191,6 @@ class Postgres(object):
 				return value
 		except:
 			print("Error in Postgres connection DB: %s" % db)
-			raise
 			return -2
 
 	def commit(self, db):

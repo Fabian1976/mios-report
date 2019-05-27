@@ -197,7 +197,6 @@ class Postgres(object):
                 return value
         except:
             print("Error in Postgres connection DB: %s" % db)
-            raise
             return -2
 
     def commit(self, db):
