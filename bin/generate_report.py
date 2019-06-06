@@ -553,6 +553,8 @@ def getUptimeGraph(itemid):
     except ZeroDivisionError:
         percentage_down = 0
     percentage_up = 100 - (percentage_down + percentage_down_maintenance)
+    if percentage_up < 0:
+        percentage_up = 0
     rootLogger.info("Percentage down and in maintenanve during period    : %s" % percentage_down_maintenance)
     rootLogger.info("Percentage down and NOT in maintenance during period: %s" % percentage_down)
     rootLogger.info("Percentage up during period                         : %s" % percentage_up)
@@ -706,7 +708,7 @@ def sendReport(filename, hostgroupname):
     attachFile.add_header('Content-Disposition', 'attachment', filename=os.path.basename(filename))
     msg.attach(attachFile)
     msg['Subject'] = 'Rapportage %s, %s t/m %s' % (hostgroupname, config.report_start_date, config.report_end_date)
-    msg['From'] = sender
+    msg['From'] = 'Zabbix report <%s>' % sender
     msg['To'] = receiver
     rootLogger.info("sendReport - Mailing report to %s" % receiver)
     mailer = smtplib.SMTP(config.email_server)
