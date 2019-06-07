@@ -29,3 +29,6 @@ infra_picture=Infrastructure_overview.png
 # A file with the paragraph text (called "paragraph_Custom") must also exist in folder /opt/mios/mios-report/templates/default_texts/
 custom = 1
 custom_title = Applicatie gebruik
+# Table colors
+table_header_color=2471A3
+table_first_column_color=E3F3B7

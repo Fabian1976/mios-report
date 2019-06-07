@@ -53,6 +53,8 @@ class Config:
         self.report_infra_picture = ''
         self.custom_section = 0
         self.custom_title = ''
+        self.table_header_color = ''
+        self.table_first_column_color = ''
         try:
             self.mreport_home = os.environ['MREPORT_HOME']
         except:
@@ -243,6 +245,14 @@ class Config:
                 self.custom_title = self.customer_config.get('report', 'custom_title')
             except:
                 self.custom_title = "None specified"
+        try:
+            self.table_header_color = self.customer_config.get('report', 'table_header_color')
+        except:
+            self.table_header_color = config.table_header_color
+        try:
+            self.table_first_column_color = self.customer_config.get('report', 'table_first_column_color')
+        except:
+            self.table_first_column_color = config.table_first_column_color
 
 class Postgres(object):
     def __init__(self, instances):
@@ -763,13 +773,13 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
             tbl_row.append(datetime.datetime.fromtimestamp(end_period).strftime("%d-%m-%Y %H:%M:%S"))
             tbl_row.append(dhms(end_period - start_period))
             maintenance_tbl_rows.append(tbl_row)
-            body.append(docx.table(maintenance_tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+            body.append(docx.table(maintenance_tbl_rows, headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
     else:
         tbl_rows = []
         tbl_heading = ['ITEM', 'OPMERKINGEN']
         tbl_rows.append(tbl_heading)
         tbl_rows.append(['', ''])
-        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
 
     body.append(docx.heading("Aktiepunten", 2, lang=config.report_template_language))
 
@@ -852,7 +862,7 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
 #                    tbl_row.append(dhms(end_period - start_period))
 #                    tbl_rows.append(tbl_row)
 #                if len(downtime_periods) > 0:
-#                    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+#                    body.append(docx.table(tbl_rows, headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
                 tbl_row = []
                 uptime_item_name = record['itemname']
                 replace_strings = get_replace_strings(hostgroupid)
@@ -863,12 +873,12 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
                 tbl_row.append('%.2f' % percentage_down_maintenance)
                 tbl_row.append('%.2f' % percentage_up)
                 tbl_rows.append(tbl_row)
-    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
     # Maintenance periodes
     body.append(docx.heading("Maintenance-overzicht", 3, lang=config.report_template_language))
     # De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
     if len(maintenance_periods) > 0:
-        body.append(docx.table(maintenance_tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+        body.append(docx.table(maintenance_tbl_rows, headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
     else:
         body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
@@ -877,7 +887,7 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
     tbl_rows.append(['', ''])
-    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
 
     # Performance grafieken
     body.append(docx.heading("Basic performance counters", 2, lang=config.report_template_language))
@@ -917,7 +927,7 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
     tbl_rows.append(['', ''])
-    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
 
     # Trending grafieken
     body.append(docx.heading("Trending", 2, lang=config.report_template_language))
@@ -947,7 +957,7 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
     tbl_heading = ['ITEM', 'OPMERKINGEN']
     tbl_rows.append(tbl_heading)
     tbl_rows.append(['', ''])
-    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
 
 #    body.append(docx.heading("Advanced performance counters", 2, lang=config.report_template_language))
 #    body.append(docx.paragraph(get_db_text(hostgroupid, 'Advanced_performance_counters')))
@@ -975,13 +985,13 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
 #            tbl_row.append(backup_status)
 #            tbl_row.append(backup_type)
 #            tbl_rows.append(tbl_row)
-#        body.append(docx.table(tbl_rows, headingFillColor='2471A3'))
+#        body.append(docx.table(tbl_rows, headingFillColor=config.table_header_color))
 #        body.append(docx.heading("Opmerkingen", 3, lang=config.report_template_language))
 #        tbl_rows = []
 #        tbl_heading = ['ITEM', 'OPMERKINGEN']
 #        tbl_rows.append(tbl_heading)
 #        tbl_rows.append(['', ''])
-#        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+#        body.append(docx.table(tbl_rows, colw=[1188, 7979], headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
 
     body.append(docx.heading("Ticket overzicht", 1, lang=config.report_template_language))
     body.append(docx.paragraph(get_db_text(hostgroupid, 'Ticket_overzicht')))
@@ -1009,7 +1019,7 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
     row3_col1 = docx.paragraph([("CPU utilization", "b")], size=8)
     row3_col2 = docx.paragraph("dit getal geeft aan hoeveel procent van de CPU-capaciteit daadwerkelijk wordt gebruikt per tijdseenheid, en door welk type CPU-gebruik.", size=8)
     tbl_rows.append([row3_col1, row3_col2])
-    body.append(docx.table(tbl_rows, colw=[1648, 7529], headingFillColor='2471A3', firstColFillColor='E3F3B7'))
+    body.append(docx.table(tbl_rows, colw=[1648, 7529], headingFillColor=config.table_header_color, firstColFillColor=config.table_first_column_color))
 
     if config.report_infra_picture:
         body.append(docx.heading("Omgevingsoverzicht", 1, lang=config.report_template_language))
