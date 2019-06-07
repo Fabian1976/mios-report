@@ -859,7 +859,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
     body.append(docx.heading("Maintenance-overzicht", 3, lang=config.report_template_language))
     # De gegevens zijn al gegenereerd bij de samenvatting. Dus er hoeft alleen nog maar gekeken te worden of het nogmaals toegevoegd moet worden
     if len(maintenance_periods) > 0:
-        body.append(docx.table(maintenance_tbl_rows))
+        body.append(docx.table(maintenance_tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
     else:
         body.append(docx.paragraph("Er is in de afgelopen periode geen gepland onderhoud geweest."))
 
