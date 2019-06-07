@@ -26,13 +26,8 @@ sys.path.append(mreport_home + '/lib')
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 import GChartWrapper
 
-# Read file with strings to be replaced
-f = open(mreport_home + '/conf/replace_strings.conf', 'r')
-replace_strings = dict(map(str.strip, line.rstrip('\r\n').split('=')) for line in f)
-f.close()
 
 postgres = None
-
 
 class Config:
     def __init__(self, conf_file, customer_conf_file):
@@ -675,6 +670,11 @@ def getDBText(hostgroupid, paragraphName):
     return paragraphText[0][0]
 
 
+def getReplaceStrings(hostgroupid):
+    db_text = getDBText(hostgroupid, 'Replace_strings').split('\n')
+    return dict(map(str.strip, line.split('=')) for line in db_text)
+
+
 def sendReport(filename, hostgroupname):
     import smtplib
     from email.MIMEMultipart import MIMEMultipart
@@ -846,6 +846,7 @@ def generateReport(hostgroupid, hostgroupname, graphData, itemData):
 #                    body.append(docx.table(tbl_rows, headingFillColor='2471A3', firstColFillColor='E3F3B7'))
                 tbl_row = []
                 uptime_item_name = record['itemname']
+                replace_strings = getReplaceStrings(hostgroupid)
                 for string, replace_by in replace_strings.items():
                     uptime_item_name = uptime_item_name.replace(string, replace_by)
                 tbl_row.append(uptime_item_name)
