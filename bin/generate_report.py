@@ -332,6 +332,26 @@ class Postgres(object):
             self.logger.critical("Error in Postgres connection DB: %s" % db)
             return -2
 
+def custom_logger(log_text, loglevel='info'):
+    method_caller = sys._getframe().f_back.f_code.co_name
+    loglevels = {
+        "CRITICAL": 50,
+        "ERROR": 40,
+        "WARNING": 30,
+        "INFO": 20,
+        "DEBUG": 10
+    }
+
+    if loglevel.upper() not in loglevels:
+        print "Invalid loglevel '%s'" % loglevel
+        print "Method caller: %s" % method_caller
+        print "Valid loglevels are:"
+        for key, value in loglevels.iteritems():
+            print ' - %s' % key
+        print "\n loglevels are case insensitive"
+        sys.exit(1)
+    rootLogger.log(loglevels[loglevel.upper()], "%s - %s" % (method_caller, log_text))
+
 def select_hostgroup():
     teller = 0
     hostgroups = {}
@@ -371,7 +391,8 @@ def select_hostgroup():
 
 def get_hostgroup_name(hostgroupid):
     try:
-        rootLogger.info("get_hostgroup_name - Fetching hostgroupname via API")
+#        rootLogger.info("get_hostgroup_name - Fetching hostgroupname via API")
+        custom_logger(Fetching hostgroupname via API, 'into')
         hostgroupname = zapi.hostgroup.get({"output": "extend", "filter": {"groupid": hostgroupid}})[0]['name']
     except Exception as e:
         rootLogger.error("get_hostgroup_name - Fetching hostgroupname via API failed")
