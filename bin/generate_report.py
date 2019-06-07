@@ -28,6 +28,7 @@ import GChartWrapper
 
 
 postgres = None
+zapi = None
 
 class Config:
     def __init__(self, conf_file, customer_conf_file):
@@ -1079,6 +1080,7 @@ def cleanup():
     my_logger('', 'info')
 
 def initialize():
+    global zapi
     my_logger('============================= Initialize Zabbix-REPORT ================================', 'info')
     zapi = ZabbixAPI(server=config.zabbix_frontend, validate_certs=False)
 
