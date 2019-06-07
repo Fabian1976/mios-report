@@ -26,10 +26,15 @@ sys.path.append(mreport_home + '/lib')
 from zabbix_api import ZabbixAPI, ZabbixAPIException
 import GChartWrapper
 
+def getReplaceStrings(hostgroupid):
+    db_text = getDBText(hostgroupid, 'Replace_strings')
+    replace_strings = dict(map(str.strip, line.rstrip('\r\n').split('=')) for line in db_text)
+    return replace_strings
+
 # Read file with strings to be replaced
-f = open(mreport_home + '/conf/replace_strings.conf', 'r')
-replace_strings = dict(map(str.strip, line.rstrip('\r\n').split('=')) for line in f)
-f.close()
+#f = open(mreport_home + '/conf/replace_strings.conf', 'r')
+#replace_strings = dict(map(str.strip, line.rstrip('\r\n').split('=')) for line in f)
+#f.close()
 
 postgres = None
 
@@ -1099,6 +1104,9 @@ def main():
         rootLogger.fatal("Please run the db_filler script first to select the graphs you want in the report for this hostgroup")
         sys.exit(1)
     else:
+        strings = getReplaceStrings
+        print strings
+        sys.exit(1)
         # get the hosts and their graphs from selected host group
         graphsList = getGraphsList(hostgroupid)
         itemsList = getItemsList(hostgroupid)
