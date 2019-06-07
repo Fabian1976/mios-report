@@ -1038,7 +1038,7 @@ def generate_report(hostgroupid, hostgroupname, graphData, itemData):
         my_logger('Sending report by email', 'info')
         send_report(mreport_home + '/' + config.report_name, hostgroupname)
     else:
-        my_logger('No email receiver specified. Report will not be sent by email. Download it manually', , 'warning')
+        my_logger('No email receiver specified. Report will not be sent by email. Download it manually', 'warning')
 
 
 def dhms(seconds):
@@ -1077,6 +1077,19 @@ def cleanup():
         pass
     my_logger('Done cleaning up', 'info')
     my_logger('', 'info')
+
+def initialize():
+    my_logger('============================= Initialize Zabbix-REPORT ================================', 'info')
+    zapi = ZabbixAPI(server=config.zabbix_frontend, validate_certs=False)
+
+    try:
+        my_logger("Connecting to Zabbix API", 'info')
+        zapi.login(config.zabbix_user, config.zabbix_password)
+        my_logger("Connected to Zabbix API Version: %s" % zapi.api_version(), 'info')
+    except ZabbixAPIException as e:
+        my_logger("Zabbix API connection failed", 'critical')
+        my_logger("Additional info: %s" % e, 'critical')
+        sys.exit(1)
 
 
 def main():
@@ -1142,16 +1155,6 @@ if __name__ == "__main__":
         print("Error while loading file necessary for the log facility ($MREPORT_HOME/conf/logging.conf)")
         print("Unable to continue")
         sys.exit(1)
-
-    my_logger('============================= Initialize Zabbix-REPORT ================================', 'info')
-    zapi = ZabbixAPI(server=config.zabbix_frontend, validate_certs=False)
-
-    try:
-        my_logger("Connecting to Zabbix API", 'info')
-        zapi.login(config.zabbix_user, config.zabbix_password)
-        my_logger("Connected to Zabbix API Version: %s" % zapi.api_version(), 'info')
-    except ZabbixAPIException as e:
-        my_logger("Zabbix API connection failed", 'critical')
-        my_logger("Additional info: %s" % e, 'critical')
-        sys.exit(1)
+    
+    initialize()
     main()
